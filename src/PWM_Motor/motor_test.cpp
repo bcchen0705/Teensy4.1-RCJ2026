@@ -25,8 +25,11 @@ void setup(){
     Robot_Init();
 }
 void loop(){
-    //Vector_Motion(0,15);
-    
+    Vector_Motion(0,0);
+    readBNO085Yaw();
+    //Serial.print("heading");Serial.println(gyroData.heading);
+    //Serial.print("pitch");Serial.println(gyroData.pitch);    
+
     /*
     SetMotorSpeed(1,-10);
     SetMotorSpeed(2,10);
