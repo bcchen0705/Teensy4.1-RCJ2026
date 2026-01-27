@@ -12,7 +12,7 @@ struct BallCamData{
 class BallCam{
     private:
         static uint8_t buffer[6];
-        static uint8_t index = 0;
+        static uint8_t index;
     public:
         BallCamData data;
         void update();
