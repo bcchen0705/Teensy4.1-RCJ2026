@@ -243,8 +243,8 @@ void readCameraData(){
   static uint8_t buffer[10];
   uint8_t index = 0;
   targetData.valid = false;
-  while (Serial4.available()){
-    uint8_t b = Serial4.read();
+  while (Serial5.available()){
+    uint8_t b = Serial5.read();
     if(index == 0 && b != 0xCC){
       continue;  // 等待開頭 0xCC
     }
