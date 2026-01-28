@@ -8,7 +8,8 @@ class GyroData{
         float heading = 0.0;
         float pitch = 0.0;
         bool valid = false;
-
+        float omega;
+        
         struct RobotControl {
             float robot_heading = 90.0;        // Target heading
             float P_factor = 0.7;              // Proportional gain

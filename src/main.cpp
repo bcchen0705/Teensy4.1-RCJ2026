@@ -5,6 +5,7 @@
 
 int ballvx;
 int ballvy;
+float omega;
 
 void setup(){
   Hardware::initPins();
@@ -12,18 +13,25 @@ void setup(){
 void loop(){
   ballData.readBallCam();
   gyroData.readBNO085Yaw();
-  if(ballData.valid = true){    
+  if(ballData.valid){    
     Serial.print("Angle: "); Serial.println(ballData.angle);
+    Serial.print("Dist: "); Serial.println(ballData.dist);
 
     float angle_rad = ballData.angle * DtoR_const;
-    ballvx = (int)round(10.0f * cos(angle_rad));
-    ballvy = (int)round(10.0f * sin(angle_rad));
+    ballvx = (int)round(15.0f * cos(angle_rad));
+    ballvy = (int)round(15.0f * sin(angle_rad));
     Serial.print("vx");Serial.println(ballvx);
     Serial.print("vy");Serial.println(ballvy);
     
-    Vector_Motion(ballvx,ballvy);
+    /*float error = ballData.angle - gyroData.heading;
+    if(fabs(error) > 30.0f){
+      gyroData.control.robot_heading = ballData.angle;
+    }*/
+    Vector_Motion(ballvx, ballvy);
   } 
   else {
-    MotorStop();
+    Serial.println("No Ball Detected");
+    Vector_Motion(0,0);
   }
+
 }

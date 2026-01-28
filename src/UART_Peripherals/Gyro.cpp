@@ -7,11 +7,11 @@ GyroData gyroData;
 void GyroData::readBNO085Yaw() {
     const int PACKET_SIZE = 19;
     uint8_t buffer[PACKET_SIZE];
-    gyroData.valid = false; // Reset flag before read attempt
+    valid = false; // Reset flag before read attempt
 
     while (Serial2.available() >= PACKET_SIZE) {
         buffer[0] = Serial2.read();
-        if (buffer[0] != 0xAA) continue;
+        if (buffer[0] != 0xAA) continue;    
         buffer[1] = Serial2.read();
         if (buffer[1] != 0xAA) continue;
 
@@ -36,11 +36,11 @@ void GyroData::readBNO085Yaw() {
         int16_t pitch_raw = (int16_t)((buffer[6] << 8) | buffer[5]);
 
         if (abs(yaw_raw) <= 18000) {
-            gyroData.heading = yaw_raw * 0.01f;
-            gyroData.valid = true;
+            heading = yaw_raw * 0.01f;
+            valid = true;
         }
         if (abs(pitch_raw) <= 18000) {
-            gyroData.pitch = pitch_raw * 0.01f;
+            pitch = pitch_raw * 0.01f;
         }
 
         break; // 每次只處理一個 packet
