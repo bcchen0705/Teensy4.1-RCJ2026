@@ -23,10 +23,11 @@ void loop(){
     Serial.print("vx");Serial.println(ballvx);
     Serial.print("vy");Serial.println(ballvy);
     
-    /*float error = ballData.angle - gyroData.heading;
-    if(fabs(error) > 30.0f){
+    float error = ballData.angle - gyroData.heading;
+    
+    if(fabs(error) > 20.0f){
       gyroData.control.robot_heading = ballData.angle;
-    }*/
+    }
     Vector_Motion(ballvx, ballvy);
   } 
   else {
