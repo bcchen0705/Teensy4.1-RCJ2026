@@ -21,7 +21,8 @@
 #define DIRA_4 6    // 方向控制腳1
 #define DIRB_4 9
 
-
+#define DtoR_const 0.0174529f
+#define RtoD_const 57.2958f
 
 class Hardware{
     public:
