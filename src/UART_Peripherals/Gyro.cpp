@@ -4,6 +4,8 @@
 GyroData gyroData;
 RobotControl control;
 
+void readBNO085Yaw();
+
 void readBNO085Yaw() {
     const int PACKET_SIZE = 19;
     uint8_t buffer[PACKET_SIZE];

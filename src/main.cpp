@@ -3,12 +3,11 @@
 #include <Hardware.h>
 #include <Motor.h>
 
-BallCam ballCam;
 
 void setup(){
   Hardware::initPins();
 }
 void loop(){
-  ballCam.update();
+  readBallCam();
   readBNO085Yaw();
 }

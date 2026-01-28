@@ -8,14 +8,8 @@ struct BallCamData{
     uint16_t dist = 65535;
     bool valid = false;
 };
+extern BallCamData ballCamData;
 
-class BallCam{
-    private:
-        static uint8_t buffer[6];
-        static uint8_t index;
-    public:
-        BallCamData data;
-        void update();
-};
+void readBallCam();
 
 #endif

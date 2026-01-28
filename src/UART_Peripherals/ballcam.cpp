@@ -8,7 +8,9 @@
 uint8_t BallCam::buffer[6] = {0};
 uint8_t BallCam::index = 0;
 
-void BallCam::update(){
+void readBallCam();
+
+void readBallCam(){
     ballData.valid = false;
 
     while(Serial4.available()){
