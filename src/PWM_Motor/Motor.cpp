@@ -5,6 +5,7 @@
 #include <Motor.h>
 #include <math.h>
 #include <Gyro.h>
+#include <Hardware.h>
 
 #ifndef MAX_V
 #define MAX_V 40
@@ -104,9 +105,9 @@ void Vector_Motion(float Vx, float Vy){
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
   float sensor_heading = 90.0 - current_gyro_heading;
-  float e = control.robot_heading - sensor_heading;
-  if(fabs(e) > control.heading_threshold){
-      omega = e * control.P_factor;
+  float e = gyroData.control.robot_heading - sensor_heading;
+  if(fabs(e) > gyroData.control.heading_threshold){
+      omega = e * gyroData.control.P_factor;
   }
   RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
 }
