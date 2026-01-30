@@ -9,6 +9,7 @@ BallCam ballData;
 
 
 void BallCam::readBallCam(){
+
     static uint8_t buffer[6] = {0};
     static uint8_t idx = 0;
     while(Serial4.available()){
@@ -16,21 +17,21 @@ void BallCam::readBallCam(){
         if(idx == 0 && b != 0xCC){continue;} //wait for 0xCC
         buffer[idx++] = b;
 
-        if(idx == 6){
+        if(idx == 6){ //裝包 共6組
             if(buffer[0] == 0xCC && buffer[5] == 0xEE){
                ballData.angle = buffer[1] | (buffer[2] << 8);
                ballData.dist = buffer[3] | (buffer[4] << 8);
             
-               if(ballData.angle != 65535 || ballData.dist != 65535)
+               if(ballData.angle != 65535 && ballData.dist != 65535)
                 ballData.valid = true;
                else{
                 ballData.valid = false;
-               }
+               }  //無球
             }
             else{
                 ballData.valid = false;
-            }
+            }  //無數據
             idx = 0;  // reset buffer
-        }
+        }  
     }
 }
