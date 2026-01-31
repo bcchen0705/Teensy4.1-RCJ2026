@@ -7,14 +7,81 @@
 int ballvx;
 int ballvy;
 
+// --- [全域狀態變數] ---
+float lineVx = 0, lineVy = 0;
+bool overhalf = false;
+bool first_detect = false;
+float init_lineDegree = -1;
+uint32_t speed_timer = 0;
+
 void setup(){
   Hardware::initPins();
 }
 void loop(){
+  //讀數據
   ballData.readBallCam();
   gyroData.readBNO085Yaw();
   lineSensor.update();
 
+  // A : 向量合成
+  float sumX = 0, sumY = 0;
+  int count = 0;
+  bool linedetected = false;
+
+  for(int i = 0; i < 32; i++){
+    if(bitRead(lineSensor.lineData.state, i)){
+      float deg = LineSensor::linesensorDegreelist[i];
+      sumX += cos(deg * DtoR_const);
+      sumY += sin(deg * DtoR_const);
+      count ++;
+      linedetected = true;
+    }
+  }
+
+  // B : 反彈
+  if(linedetected || overhalf){
+    float lineDegree = atan2(sumY, sumX) * RtoD_const;
+    if (lineDegree < 0){lineDegree += 360;} 
+
+    if(!first_detect){
+      init_lineDegree = lineDegree;
+      first_detect = true;
+      speed_timer = millis();
+      Serial.println("LINE DETECTED !!!");
+    }
+
+    float diff = fabs(lineDegree - init_lineDegree);
+    if(diff > 180){diff = 360 - diff;}
+
+    float finalDegree;
+    //反方向逃跑
+    if(diff > EMERGENCY_THRESHOLD){
+      overhalf = true;
+      finalDegree = fmod(init_lineDegree + 180.0f,360.0f);
+    }
+    else{
+      overhalf = false;
+      finalDegree = fmod(lineDegree + 180.0f, 360.0f);
+    }
+
+    lineVx = 50.0f * cos(finalDegree * DtoR_const);
+    lineVy = 50.0f * sin(finalDegree * DtoR_const);
+
+    Vector_Motion((int)lineVx, (int)lineVy);
+
+    // 無線
+    if (!linedetected && (millis() - speed_timer > 500)){
+      overhalf = false;
+      first_detect = false;
+      Serial.println("back to field");
+    }
+    return;  //踩線不追球
+  }
+  if(!linedetected){
+    first_detect = false;
+    overhalf = false;
+  }
+  // 無線追球
   if(ballData.valid){    //有球
     Serial.print("Angle: "); Serial.println(ballData.angle);
     Serial.print("Dist: "); Serial.println(ballData.dist);
