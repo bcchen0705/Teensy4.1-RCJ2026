@@ -2,6 +2,7 @@
 #include <Gyro.h>
 #include <Hardware.h>
 #include <Motor.h>
+#include <LineSensor.h>
 
 int ballvx;
 int ballvy;
@@ -12,6 +13,7 @@ void setup(){
 void loop(){
   ballData.readBallCam();
   gyroData.readBNO085Yaw();
+  lineSensor.update();
 
   if(ballData.valid){    //有球
     Serial.print("Angle: "); Serial.println(ballData.angle);
