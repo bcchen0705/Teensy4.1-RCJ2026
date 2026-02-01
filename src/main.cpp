@@ -23,14 +23,25 @@ void loop(){
   gyroData.readBNO085Yaw();
   lineSensor.update();
   
+  // --- [插入這段來查看二進制] ---
+  static uint32_t lastPrint = 0;
+  if (millis() - lastPrint > 100) { // 每 100ms 印一次，避免洗板
+    Serial.print("Teensy Rx Bin: ");
+    for (int i = 31; i >= 0; i--) {
+      Serial.print(bitRead(lineSensor.lineData.state, i));
+      if (i % 8 == 0 && i != 0) Serial.print(" "); // 每 8 位空一格
+    }
+    Serial.println();
+    lastPrint = millis();
+  }
+  // -----------------------------
+
   // A : 向量合成
   float sumX = 0, sumY = 0;
   int count = 0;
   bool linedetected = false;
 
   for(int i = 0; i < 32; i++){
-    if(i == 20){continue;}
-    
     if(bitRead(lineSensor.lineData.state, i)){
       float deg = LineSensor::linesensorDegreelist[i];
       sumX += cos(deg * DtoR_const);
@@ -41,7 +52,7 @@ void loop(){
   }
 
   // B : 反彈
-  if(linedetected || overhalf){
+  if((linedetected && count > 1) || overhalf){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
     //Serial.print("degree=");Serial.println(lineDegree);}
