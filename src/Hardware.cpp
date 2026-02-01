@@ -2,7 +2,7 @@
 
 
 void Hardware::initPins(){
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial2.begin(115200);
   Serial3.begin(115200);
   Serial4.begin(115200);

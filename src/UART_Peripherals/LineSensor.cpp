@@ -2,10 +2,11 @@
 #include <Motor.h>
 
 float LineSensor::linesensorDegreelist[32] = {
-  0.00,  11.25, 22.50, 33.75, 45.00, 56.25, 67.50, 78.75,
-  90.00, 101.25, 112.50, 123.75, 135.00, 146.25, 157.50, 168.75,
-  180.00, 191.25, 202.50, 213.75, 225.00, 236.25, 247.50, 258.75,
-  270.00, 281.25, 292.50, 303.75, 315.00, 326.25, 337.50, 348.75
+  90.00,  78.75,  67.50,  56.25,  45.00,  33.75,  22.50,  11.25,   // 前 -> 右
+  0.00, 348.75, 337.50, 326.25, 315.00, 303.75, 292.50, 281.25,   // 右 -> 後
+ 270.00, 258.75, 247.50, 236.25, 225.00, 213.75, 202.50, 191.25,   // 後 -> 左
+ 180.00, 168.75, 157.50, 146.25, 135.00, 123.75, 112.50, 101.25
+      
 };
 
 int8_t LineSensor::linesensor_ver_cor[32] = {
@@ -24,11 +25,9 @@ LineSensor::LineSensor(){
 // 更新函式實作
 void LineSensor::update(){
   uint8_t buffer[7];
-  Serial5.write(0xdd);
-
-  while(!Serial5.available());
-
-  Serial5.readBytes(buffer,7);
+  Serial7.write(0xdd);
+  while(!Serial7.available());
+  Serial7.readBytes(buffer,7);
   lineData.valid = false;
 
   if(buffer[0] != 0xAA) return;

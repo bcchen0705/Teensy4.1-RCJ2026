@@ -22,13 +22,15 @@ void loop(){
   ballData.readBallCam();
   gyroData.readBNO085Yaw();
   lineSensor.update();
-
+  
   // A : 向量合成
   float sumX = 0, sumY = 0;
   int count = 0;
   bool linedetected = false;
 
   for(int i = 0; i < 32; i++){
+    if(i == 20){continue;}
+    
     if(bitRead(lineSensor.lineData.state, i)){
       float deg = LineSensor::linesensorDegreelist[i];
       sumX += cos(deg * DtoR_const);
@@ -42,16 +44,19 @@ void loop(){
   if(linedetected || overhalf){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
+    //Serial.print("degree=");Serial.println(lineDegree);}
 
     if(!first_detect){
       init_lineDegree = lineDegree;
       first_detect = true;
       speed_timer = millis();
       Serial.println("LINE DETECTED !!!");
+      Serial.print("initlineDegree =");Serial.println(init_lineDegree);
     }
 
     float diff = fabs(lineDegree - init_lineDegree);
     if(diff > 180){diff = 360 - diff;}
+    Serial.print("diff =");Serial.println(diff);
 
     float finalDegree;
     //反方向逃跑
@@ -64,8 +69,13 @@ void loop(){
       finalDegree = fmod(lineDegree + 180.0f, 360.0f);
     }
 
-    lineVx = 50.0f * cos(finalDegree * DtoR_const);
-    lineVy = 50.0f * sin(finalDegree * DtoR_const);
+  
+    lineVx = 40.0f * cos(finalDegree * DtoR_const);
+    lineVy = 40.0f * sin(finalDegree * DtoR_const);
+    
+    Serial.print("finalDegree =");Serial.println(finalDegree);
+    Serial.print("lineVx =");Serial.println(lineVx);
+    Serial.print("lineVy =");Serial.println(lineVy);
 
     Vector_Motion((int)lineVx, (int)lineVy);
 
@@ -81,7 +91,8 @@ void loop(){
     first_detect = false;
     overhalf = false;
   }
-  // 無線追球
+/*
+  // 無線 追球
   if(ballData.valid){    //有球
     Serial.print("Angle: "); Serial.println(ballData.angle);
     Serial.print("Dist: "); Serial.println(ballData.dist);
@@ -128,20 +139,18 @@ void loop(){
     Serial.printf("moving%f",moving_degree);Serial.print("");
     Serial.print("vx");Serial.println(ballvx);
     Serial.print("vy");Serial.println(ballvy);
-    
     //誤差
-    /*float error = ballData.angle - gyroData.heading;
+    float error = ballData.angle - gyroData.heading;
 
     if(fabs(error) > 20.0f){
       gyroData.control.robot_heading = ballData.angle;
     }
-    */
-    Vector_Motion(ballvx,ballvy);
+    
+    //Vector_Motion(ballvx,ballvy);
     //delay(300);
-  }
+  //}
   else { //無球
     Serial.println("No Ball Detected");
     Vector_Motion(0,0);
-  }
-
+  }*/
 }
