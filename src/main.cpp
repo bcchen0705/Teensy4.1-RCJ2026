@@ -9,7 +9,7 @@ int ballvy;
 
 // --- [全域狀態變數] ---
 float lineVx = 0, lineVy = 0;
-bool overhalf = false;
+//bool overhalf = false;
 bool first_detect = false;
 float init_lineDegree = -1;
 uint32_t speed_timer = 0;
@@ -23,9 +23,9 @@ void loop(){
   gyroData.readBNO085Yaw();
   lineSensor.update();
   
-  // --- [插入這段來查看二進制] ---
+  // --- [查看二進制] ---
   static uint32_t lastPrint = 0;
-  if (millis() - lastPrint > 100) { // 每 100ms 印一次，避免洗板
+  if (millis() - lastPrint > 100) { 
     Serial.print("Teensy Rx Bin: ");
     for (int i = 31; i >= 0; i--) {
       Serial.print(bitRead(lineSensor.lineData.state, i));
@@ -52,7 +52,7 @@ void loop(){
   }
 
   // B : 反彈
-  if((linedetected && count > 1) || overhalf){
+  if((linedetected && count > 1)){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
     //Serial.print("degree=");Serial.println(lineDegree);}
@@ -65,20 +65,20 @@ void loop(){
       Serial.print("initlineDegree =");Serial.println(init_lineDegree);
     }
 
-    float diff = fabs(lineDegree - init_lineDegree);
+    /*float diff = fabs(lineDegree - init_lineDegree);
     if(diff > 180){diff = 360 - diff;}
-    Serial.print("diff =");Serial.println(diff);
+    Serial.print("diff =");Serial.println(diff);*/
 
-    float finalDegree;
+    float finalDegree = fmod(lineDegree + 180.0f, 360.0f);;
     //反方向逃跑
-    if(diff > EMERGENCY_THRESHOLD){
+    /*if(diff > EMERGENCY_THRESHOLD){
       overhalf = true;
       finalDegree = fmod(init_lineDegree + 180.0f,360.0f);
     }
     else{
       overhalf = false;
       finalDegree = fmod(lineDegree + 180.0f, 360.0f);
-    }
+    }*/
 
   
     lineVx = 40.0f * cos(finalDegree * DtoR_const);
@@ -92,7 +92,7 @@ void loop(){
 
     // 無線
     if (!linedetected && (millis() - speed_timer > 500)){
-      overhalf = false;
+      //overhalf = false;
       first_detect = false;
       Serial.println("back to field");
     }
@@ -100,7 +100,7 @@ void loop(){
   }
   if(!linedetected){
     first_detect = false;
-    overhalf = false;
+    //overhalf = false;
   }
 /*
   // 無線 追球

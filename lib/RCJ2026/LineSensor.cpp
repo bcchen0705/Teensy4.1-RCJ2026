@@ -37,11 +37,21 @@ void LineSensor::update(){
 
     if(checksum == buffer[5]){
       lineData.valid = true;
-      lineData.state = 
+      uint32_t current raw = 
       (uint32_t)buffer[1] | 
       ((uint32_t)buffer[2] << 8) | 
       ((uint32_t)buffer[3] << 16) | 
-      ((uint32_t)buffer[4] << 24);     
+      ((uint32_t)buffer[4] << 24);
+      
+      //過濾邏輯
+      static uint32_t last_raw = 0;
+      
+      lineData.state = current_raw & last_raw;
+      
+      last_raw = current_raw;
+      // -----------------------
+
+
       if(lineData.state != 0){
         Vector_Motion(0,0);  // Stop robot if line detected
       }
