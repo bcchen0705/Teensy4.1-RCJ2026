@@ -1,135 +1,28 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Arduino.h>
+#include <Robot.h>
+#include <math.h>
 
-#include <BallCam.h>
-#include <Gyro.h>
-#include <Hardware.h>
-#include <Motor.h>
-#include <LineSensor.h>
-#include <Screen.h>
+//CAMERA
+unsigned long lastCameraUpdate = 0;  // 記錄上次執行時間
+const unsigned long interval = 50;  // 20Hz = 每50毫秒一次
 
-int ballvx;
-int ballvy;
-
-// --- [全域狀態變數] ---
-float lineVx = 0, lineVy = 0;
-//// 選bool overhalf = false;
-bool first_detect = false;
-float init_lineDegree = -1;
-uint32_t speed_timer = 0;
-
-void attack();
+//GOAL
+uint32_t lastTargetTime = 0;
+static float rotate = 0;
+static bool isRecovering = false; // 紀錄是否正在處理邊緣回彈
 
 void setup(){
-  Hardware::initPins();
-  screen.init();
+  Robot_Init();
 }
 void loop(){
-  //讀數據
-  while(screen.update()){
-  ballData.readBallCam();
-  gyroData.readBNO085Yaw();
-  lineSensor.update();
-  
-  screen.setSensorData(gyroData.heading, ballData.angle, ballData.valid);
-  }
+  readBNO085Yaw();
+  readBallCam();
+  readCameraData();
 
-
-  while(1){
-    attack();
-
-    if(digitalRead(26) == LOW){
-      Vector_Motion(0,0);
-      break;
-    }
-  }
-}
-
-void attack(){
-  ballData.readBallCam();
-  gyroData.readBNO085Yaw();
-  lineSensor.update();
-
-  // --- [查看二進制] ---
-  static uint32_t lastPrint = 0;
-  if (millis() - lastPrint > 100) { 
-    Serial.print("Teensy Rx Bin: ");
-    for (int i = 31; i >= 0; i--) {
-      Serial.print(bitRead(lineSensor.lineData.state, i));
-      if (i % 8 == 0 && i != 0) Serial.print(" "); // 每 8 位空一格
-    }
-    Serial.println();
-    lastPrint = millis();
-  }
-  // -----------------------------
-
-  // A : 向量合成
-  float sumX = 0, sumY = 0;
-  int count = 0;
-  bool linedetected = false;
-
-  for(int i = 0; i < 32; i++){
-    if(bitRead(lineSensor.lineData.state, i)){
-      float deg = LineSensor::linesensorDegreelist[i];
-      sumX += cos(deg * DtoR_const);
-      sumY += sin(deg * DtoR_const);
-      count ++;
-      linedetected = true;
-    }
-  }
-
-  // B : 反彈
-  if((linedetected && count > 1)){
-    float lineDegree = atan2(sumY, sumX) * RtoD_const;
-    if (lineDegree < 0){lineDegree += 360;} 
-    //Serial.print("degree=");Serial.println(lineDegree);
-  
-
-    if(!first_detect){
-      init_lineDegree = lineDegree;
-      first_detect = true;
-      speed_timer = millis();
-      //Serial.println("LINE DETECTED !!!");
-      //Serial.print("initlineDegree =");Serial.println(init_lineDegree);
-    }
-
-    /*float diff = fabs(lineDegree - init_lineDegree);
-    if(diff > 180){diff = 360 - diff;}
-    Serial.print("diff =");Serial.println(diff);*/
-
-    float finalDegree = fmod(lineDegree + 180.0f, 360.0f);
-    //反方向逃跑
-    /*if(diff > EMERGENCY_THRESHOLD){
-      overhalf = true;
-      finalDegree = fmod(init_lineDegree + 180.0f,360.0f);
-    }
-    else{
-      overhalf = false;
-      finalDegree = fmod(lineDegree + 180.0f, 360.0f);
-    }*/
-
-  
-    lineVx = 40.0f * cos(finalDegree * DtoR_const);
-    lineVy = 40.0f * sin(finalDegree * DtoR_const);
-    
-    //Serial.print("finalDegree =");Serial.println(finalDegree);
-    //Serial.print("lineVx =");Serial.println(lineVx);
-    //Serial.print("lineVy =");Serial.println(lineVy);
-
-    Vector_Motion((int)lineVx, (int)lineVy);
-
-    // 無線
-    if (!linedetected && (millis() - speed_timer > 500)){
-      //overhalf = false;
-      first_detect = false;
-      Serial.println("back to field");
-    }
-    return;  //踩線不追球
-  }
-  if(!linedetected){
-    first_detect = false;
-    //overhalf = false;
-  }
-/*
-  // 無線 追球
+    // 無線 追球
   if(ballData.valid){    //有球
     Serial.print("Angle: "); Serial.println(ballData.angle);
     Serial.print("Dist: "); Serial.println(ballData.dist);
@@ -168,28 +61,18 @@ void attack(){
       moving_degree = fmod(moving_degree + 360.0f, 360.0f) ;
 
     }
-      
-    //計算vx vy
-    ballvx = (int)round(ballspeed * cos(moving_degree * DtoR_const));
-    ballvy = (int)round(ballspeed * sin(moving_degree * DtoR_const));
-
-    Serial.printf("moving%f",moving_degree);Serial.print("");
-    Serial.print("vx");Serial.println(ballvx);
-    Serial.print("vy");Serial.println(ballvy);
-    //誤差
-    float error = ballData.angle - gyroData.heading;
-
-    if(fabs(error) > 20.0f){
-      gyroData.control.robot_heading = ballData.angle;
-    }
     
-    //Vector_Motion(ballvx,ballvy);
-    //delay(300);
-  //}
-  else { //無球
-    Serial.println("No Ball Detected");
-    Vector_Motion(0,0);
-  }*/
-}
+    //計算vx vy
+    ballData.Vx = (int)round(MAX_V * cos(moving_degree * DtoR_const));
+    ballData.Vy = (int)round(MAX_V * sin(moving_degree * DtoR_const));
 
-//00000000 01000000 00000001 00000110
+    if(ballData.valid){
+    String packet = String(ballData.Vx) + "," + String(ballData.Vy) + "," + String(gyroData.heading);
+    Serial8.println(packet);
+    }
+  }
+  else { //無球
+    Serial8.println("No Ball Detected");
+  }
+
+}
