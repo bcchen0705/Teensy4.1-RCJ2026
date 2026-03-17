@@ -54,10 +54,12 @@ int readMux(int ch, int sigPin) {
   digitalWrite(s3, (ch >> 3) & 1);
   //delay(1);
   delayMicroseconds(50);
+
   uint16_t temp = analogRead(sigPin);
   return temp;
 }
 
+//量線
 void line_calibrate(){
   for(int i=0; i<LS_count; i++){
     max_ls[i] = 0;
@@ -86,6 +88,7 @@ void line_calibrate(){
   }*/
 }
 
+//更新
 void linesensor_update(){
   lineData.state = 0xFFFFFFFF;
   for (uint8_t i = 0; i < LS_count; i++) {
@@ -97,6 +100,7 @@ void linesensor_update(){
   }
 }
 
+//回場
 void moveBackInBounds(){
 //-----LINE SENSOR-----
   float sumX = 0.0f, sumY = 0.0f;
