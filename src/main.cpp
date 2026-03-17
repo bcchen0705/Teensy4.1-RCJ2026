@@ -1,28 +1,53 @@
+
 #include <BallCam.h>
 #include <Gyro.h>
 #include <Hardware.h>
 #include <Motor.h>
 #include <LineSensor.h>
+#include <Screen.h>
 
 int ballvx;
 int ballvy;
 
 // --- [全域狀態變數] ---
 float lineVx = 0, lineVy = 0;
-//bool overhalf = false;
+//// 選bool overhalf = false;
 bool first_detect = false;
 float init_lineDegree = -1;
 uint32_t speed_timer = 0;
 
+void attack();
+
 void setup(){
   Hardware::initPins();
+  screen.init();
 }
 void loop(){
   //讀數據
+  while(screen.update()){
   ballData.readBallCam();
   gyroData.readBNO085Yaw();
   lineSensor.update();
   
+  screen.setSensorData(gyroData.heading, ballData.angle, ballData.valid);
+  }
+
+
+  while(1){
+    attack();
+
+    if(digitalRead(26) == LOW){
+      Vector_Motion(0,0);
+      break;
+    }
+  }
+}
+
+void attack(){
+  ballData.readBallCam();
+  gyroData.readBNO085Yaw();
+  lineSensor.update();
+
   // --- [查看二進制] ---
   static uint32_t lastPrint = 0;
   if (millis() - lastPrint > 100) { 
@@ -55,21 +80,22 @@ void loop(){
   if((linedetected && count > 1)){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
-    //Serial.print("degree=");Serial.println(lineDegree);}
+    //Serial.print("degree=");Serial.println(lineDegree);
+  
 
     if(!first_detect){
       init_lineDegree = lineDegree;
       first_detect = true;
       speed_timer = millis();
-      Serial.println("LINE DETECTED !!!");
-      Serial.print("initlineDegree =");Serial.println(init_lineDegree);
+      //Serial.println("LINE DETECTED !!!");
+      //Serial.print("initlineDegree =");Serial.println(init_lineDegree);
     }
 
     /*float diff = fabs(lineDegree - init_lineDegree);
     if(diff > 180){diff = 360 - diff;}
     Serial.print("diff =");Serial.println(diff);*/
 
-    float finalDegree = fmod(lineDegree + 180.0f, 360.0f);;
+    float finalDegree = fmod(lineDegree + 180.0f, 360.0f);
     //反方向逃跑
     /*if(diff > EMERGENCY_THRESHOLD){
       overhalf = true;
@@ -84,9 +110,9 @@ void loop(){
     lineVx = 40.0f * cos(finalDegree * DtoR_const);
     lineVy = 40.0f * sin(finalDegree * DtoR_const);
     
-    Serial.print("finalDegree =");Serial.println(finalDegree);
-    Serial.print("lineVx =");Serial.println(lineVx);
-    Serial.print("lineVy =");Serial.println(lineVy);
+    //Serial.print("finalDegree =");Serial.println(finalDegree);
+    //Serial.print("lineVx =");Serial.println(lineVx);
+    //Serial.print("lineVy =");Serial.println(lineVy);
 
     Vector_Motion((int)lineVx, (int)lineVy);
 
@@ -165,3 +191,5 @@ void loop(){
     Vector_Motion(0,0);
   }*/
 }
+
+//00000000 01000000 00000001 00000110
