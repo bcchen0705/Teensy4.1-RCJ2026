@@ -5,7 +5,7 @@
 void setup(){
   Robot_Init();
 }
-void loop(){/*
+void loop(){
   if(Serial8.available()){
     String packet = Serial8.readStringUntil('\n');
     packet.trim();
@@ -24,7 +24,5 @@ void loop(){/*
 
     } 
   }
-*/
-readBNO085Yaw();
-Serial.println(gyroData.heading);
+
 }

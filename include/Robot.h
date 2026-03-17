@@ -91,10 +91,10 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 struct GyroData{float heading = 0.0; float pitch = 0.0; bool valid = false;} gyroData;
 //struct LineData{uint32_t state = 0x3FFFF; bool valid = false;} lineData;
-//struct BallData{uint8_t dis = 255; uint8_t dir = 255; uint8_t possession = 255; bool valid = false;} ballData;
+struct BallData{uint8_t dis = 255; uint8_t dir = 255; uint8_t possession = 255; bool valid = false; float Vx; float Vy} ballData;
 struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
 struct CamData{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} targetData;
-struct BallCam{uint16_t angle = 65535;uint16_t dist = 65535;bool valid = false;}ballData;
+
 
 float linesensorDegreelist[32] = {
     0.00, 11.25, 22.50, 33.75, 45.00, 56.25, 67.50, 78.75, 
