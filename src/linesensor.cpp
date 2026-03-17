@@ -76,12 +76,20 @@ void line_calibrate(){
       avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
   }
   EEPROM.put(0, avg_ls);
+
+  /*for(uint8_t i = 0; i < LS_count; i++){
+    Serial.print("Sensor ");
+    Serial.print(i);
+    Serial.print(" = ");
+    Serial.println(avg_ls[i]);
+    delay(5);
+  }*/
 }
 
 void linesensor_update(){
   lineData.state = 0xFFFFFFFF;
   for (uint8_t i = 0; i < LS_count; i++) {
-    uint16_t reading = (i < 16) ? readMux(i, M1) : readMux(i - 16, M2);
+    uint16_t reading = readMux(i, (i < 16) ? M1 : M2);;
     
     if (reading < avg_ls[i]) {
       lineData.state &= ~(1UL << i); 
@@ -135,7 +143,7 @@ void moveBackInBounds(){
     float finalDegree;
     if(diff > EMERGENCY_THRESHOLD){
       overhalf = true;
-      finalDegree = fmod(init_lineDegree + 180.0f,360.0f);
+      finalDegree = fmod(init_lineDegree + 180.0f, 360.0f);
     }
     else{
       overhalf = false;

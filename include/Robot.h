@@ -6,7 +6,7 @@
 #include <stdbool.h> // Added for clarity
 
 //Line Sensor
-#define EMERGENCY_THRESHOLD 50
+#define EMERGENCY_THRESHOLD 90
 
 //BALL SEARCHING THRESHOLD
 #define BALL_Threshold 5
