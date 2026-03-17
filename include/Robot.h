@@ -90,15 +90,18 @@ volatile bool righttouch = false;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 struct GyroData{float heading = 0.0; float pitch = 0.0; bool valid = false;} gyroData;
-struct LineData{uint32_t state = 0x3FFFF; bool valid = false;} lineData;
+//struct LineData{uint32_t state = 0x3FFFF; bool valid = false;} lineData;
 //struct BallData{uint8_t dis = 255; uint8_t dir = 255; uint8_t possession = 255; bool valid = false;} ballData;
 struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
 struct CamData{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} targetData;
 struct BallCam{uint16_t angle = 65535;uint16_t dist = 65535;bool valid = false;}ballData;
 
-
-//float ballDegreelist[16]={22.5,45,67.5,87.5,92.5,112.5,135,157.5,202.5,225,247.5,265,275,292.5,315,337.5};
-float linesensorDegreelist[18]={10,30,50,70,90,110,130,150,170,190,210,230,250,270,290,310,330,350};
+float linesensorDegreelist[32] = {
+    0.00, 11.25, 22.50, 33.75, 45.00, 56.25, 67.50, 78.75, 
+    90.00, 101.25, 112.50, 123.75, 135.00, 146.25, 157.50, 168.75, 
+    180.00, 191.25, 202.50, 213.75, 225.00, 236.25, 247.50, 258.75, 
+    270.00, 281.25, 292.50, 303.75, 315.00, 326.25, 337.50, 348.75
+};
 int8_t linesensor_ver_cor[18]={1,2,3,4,5,4,3,2,1,-1,-2,-3,-4,-5,-4,-3,-2,-1};
 
 // --- ROBOT CONTROL STRUCT (New: For P-control state) ---
@@ -302,6 +305,7 @@ void readBallCam(){
         }  
     }
 }
+/*
 void linesensor(){
   uint8_t buffer[7];
   Serial7.write(0xdd);
@@ -322,7 +326,7 @@ void linesensor(){
   else{
     lineData.valid = false;  // checksum error
   }
-}
+}*/
 /*
 void readussensor(){
   // static variables remember their values between calls
