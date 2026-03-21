@@ -61,8 +61,7 @@ int readMux(int ch, int sigPin) {
 
 //量線
 void line_calibrate(){
-  Serial8.print('B');
-
+  Serial.print("cal");
   for(int i=0; i<LS_count; i++){
     max_ls[i] = 0;
     min_ls[i] = 4095;
@@ -199,15 +198,15 @@ void setup() {
 void loop(){
   if (Serial8.available()) {
         char cmd = Serial8.read();
+        Serial.print(cmd);
         if (cmd == 'C') {
           line_calibrate(); // 進入校準模式
-          Serial.print("r");
         }
     }
 
   linesensor_update();
 
-  for (int i = LS_count - 1; i >= 0; i--) {
+  /*for (int i = LS_count - 1; i >= 0; i--) {
     uint8_t bit = (lineData.state >> i) & 1;
     Serial.print(bit);
 
@@ -216,6 +215,6 @@ void loop(){
     }
   }
   Serial.print(" ");
-  delay(50);
+  delay(50);*/
   //moveBackInBounds();
 }
