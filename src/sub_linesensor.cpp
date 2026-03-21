@@ -61,11 +61,18 @@ int readMux(int ch, int sigPin) {
 
 //量線
 void line_calibrate(){
+  Serial8.print('B');
+
   for(int i=0; i<LS_count; i++){
     max_ls[i] = 0;
     min_ls[i] = 4095;
   }
-  while(digitalRead(BTN_ESC)){
+  while(true){
+
+    if(Serial8.available()){
+      if(Serial8.read() == 'E'){break;} 
+    }
+
     for(uint8_t i = 0; i < LS_count; i++){
     uint16_t reading = readMux(i, (i < 16) ? M1 : M2);
 
@@ -79,6 +86,7 @@ void line_calibrate(){
   }
   EEPROM.put(0, avg_ls);
 
+  Serial8.print('D');
   /*for(uint8_t i = 0; i < LS_count; i++){
     Serial.print("Sensor ");
     Serial.print(i);
@@ -185,15 +193,29 @@ void setup() {
   EEPROM.get(0, avg_ls);
   // 初始化 max / min
   
+ 
 }
 
 void loop(){
-  while(!digitalRead(BTN_ENTER)){
-    line_calibrate();
-    EEPROM.get(0, avg_ls);
-  }
+  if (Serial8.available()) {
+        char cmd = Serial8.read();
+        if (cmd == 'C') {
+          line_calibrate(); // 進入校準模式
+          Serial.print("r");
+        }
+    }
 
   linesensor_update();
-  moveBackInBounds();
+
+  for (int i = LS_count - 1; i >= 0; i--) {
+    uint8_t bit = (lineData.state >> i) & 1;
+    Serial.print(bit);
+
+    if (i % 4 == 0 && i != 0) {
+      Serial.print(" "); 
+    }
+  }
+  Serial.print(" ");
+  delay(50);
+  //moveBackInBounds();
 }
-  
