@@ -33,17 +33,18 @@ void loop(){
   }
   if (digitalRead(BTN_ESC) == LOW) {
     Serial8.print('E'); // 傳送結束指令
+    delay(200); 
   }
   if(Serial8.available()){
-  if(Serial8.read() == 'D'){
-    Serial.println(Serial8.read());
-    drawMessage("SAVED!");
-    delay(1000); // 讓 SAVED 停一下
-      
-      // 回到初始狀態
-    drawMessage("READY");
-    delay(200);
-  }
+    if(Serial8.read() == 'D'){
+      Serial.println(Serial8.read());
+      drawMessage("SAVED!");
+      delay(1000); // 讓 SAVED 停一下
+        
+        // 回到初始狀態
+      drawMessage("READY");
+      delay(200);
+    }
   }
 }
 

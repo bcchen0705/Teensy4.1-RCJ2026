@@ -52,8 +52,8 @@ int readMux(int ch, int sigPin) {
   digitalWrite(s1, (ch >> 1) & 1);
   digitalWrite(s2, (ch >> 2) & 1);
   digitalWrite(s3, (ch >> 3) & 1);
-  //delay(1);
-  delayMicroseconds(50);
+  delay(1);
+  //delayMicroseconds(50);
 
   uint16_t temp = analogRead(sigPin);
   return temp;
@@ -69,7 +69,15 @@ void line_calibrate(){
   while(true){
 
     if(Serial8.available()){
-      if(Serial8.read() == 'E'){break;} 
+      if(Serial8.read() == 'E'){
+        for(uint8_t i = 0; i < LS_count; i++){
+          Serial.print(" min ");Serial.print(i);Serial.print(" = ");Serial.print(min_ls[i]);
+          Serial.print(" max ");Serial.print(i);Serial.print(" = ");Serial.print(max_ls[i]);
+          Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
+          Serial.println("");
+        }
+        break;
+      } 
     }
 
     for(uint8_t i = 0; i < LS_count; i++){
@@ -81,18 +89,12 @@ void line_calibrate(){
   }
 
   for(uint8_t i = 0; i < LS_count; i++){
-      avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
+      avg_ls[i] = (max_ls[i] - min_ls[i])*0.5 + min_ls[i];
   }
   EEPROM.put(0, avg_ls);
 
+  
   Serial8.print('D');
-  /*for(uint8_t i = 0; i < LS_count; i++){
-    Serial.print("Sensor ");
-    Serial.print(i);
-    Serial.print(" = ");
-    Serial.println(avg_ls[i]);
-    delay(5);
-  }*/
 }
 
 //更新
@@ -103,8 +105,21 @@ void linesensor_update(){
     
     if (reading < avg_ls[i]) {
       lineData.state &= ~(1UL << i); 
+      Serial.printf("%d,%d",i,reading);
+      Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
+      Serial.println();
     }
   }
+  /*for (int i = LS_count - 1; i >= 0; i--) {
+    uint8_t bit = (lineData.state >> i) & 1;
+    Serial.print(bit);
+
+    if (i % 4 == 0 && i != 0) {
+      Serial.print(" "); 
+    }
+  }
+  Serial.println(" ");
+  delay(50);*/
 }
 
 //回場
@@ -178,15 +193,15 @@ void moveBackInBounds(){
 }
 
 void setup() {
-  Serial.begin(115200);
+  Robot_Init();
 
   pinMode(s0, OUTPUT);
   pinMode(s1, OUTPUT);
   pinMode(s2, OUTPUT);
   pinMode(s3, OUTPUT);
 
-  pinMode(M1, INPUT);
-  pinMode(M2, INPUT);
+  pinMode(M1, INPUT_PULLDOWN);
+  pinMode(M2, INPUT_PULLDOWN);
   
   EEPROM.begin();
   EEPROM.get(0, avg_ls);
@@ -206,15 +221,6 @@ void loop(){
 
   linesensor_update();
 
-  /*for (int i = LS_count - 1; i >= 0; i--) {
-    uint8_t bit = (lineData.state >> i) & 1;
-    Serial.print(bit);
-
-    if (i % 4 == 0 && i != 0) {
-      Serial.print(" "); 
-    }
-  }
-  Serial.print(" ");
-  delay(50);*/
+  
   //moveBackInBounds();
 }
