@@ -53,7 +53,9 @@ int readMux(int ch, int sigPin) {
   digitalWrite(s2, (ch >> 2) & 1);
   digitalWrite(s3, (ch >> 3) & 1);
   delay(1);
-  //delayMicroseconds(50);
+
+  // 3. 【重要】空讀一次：把 ADC 內部的殘留電荷放掉
+  analogRead(sigPin);
 
   uint16_t temp = analogRead(sigPin);
   return temp;
@@ -89,11 +91,10 @@ void line_calibrate(){
   }
 
   for(uint8_t i = 0; i < LS_count; i++){
-      avg_ls[i] = (max_ls[i] - min_ls[i])*0.5 + min_ls[i];
+      avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
   }
   EEPROM.put(0, avg_ls);
 
-  
   Serial8.print('D');
 }
 
@@ -105,9 +106,9 @@ void linesensor_update(){
     
     if (reading < avg_ls[i]) {
       lineData.state &= ~(1UL << i); 
-      Serial.printf("%d,%d",i,reading);
-      Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
-      Serial.println();
+      //Serial.printf("%d,%d",i,reading);
+      //Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
+      //Serial.println();
     }
   }
   /*for (int i = LS_count - 1; i >= 0; i--) {
@@ -120,10 +121,7 @@ void linesensor_update(){
   }
   Serial.println(" ");
   delay(50);*/
-}
 
-//回場
-void moveBackInBounds(){
 //-----LINE SENSOR-----
   float sumX = 0.0f, sumY = 0.0f;
   int count = 0;
@@ -148,7 +146,7 @@ void moveBackInBounds(){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
     
-    //Serial.print("degree=");Serial.println(lineDegree);
+    Serial.print("degree=");Serial.println(lineDegree);
 
     if (!first_detect){
       init_lineDegree = lineDegree;
@@ -175,22 +173,22 @@ void moveBackInBounds(){
       overhalf = false;
       finalDegree = fmod(lineDegree + 180.0f, 360.0f);
     }
-    //Serial.print("finalDegree =");Serial.println(finalDegree);
+    Serial.print("finalDegree =");Serial.println(finalDegree);
         
     lineVx = 50.0f *cos(finalDegree * DtoR_const);
-    lineVy = 50.0f *sin(finalDegree * DtoR_const);
-
-    Vector_Motion(lineVx, lineVy);
-    
-    //Serial.print("lineVx =");Serial.println(lineVx);
-    //Serial.print("lineVy =");Serial.println(lineVy);
-   
+    lineVy = 50.0f *sin(finalDegree * DtoR_const);   
   }
   else{
     first_detect = false;
-    Vector_Motion(0, 0);
+    lineVx = 0;
+    lineVy = 0;
   }
+
+  Serial.print("lineVx =");Serial.println(lineVx);
+  Serial.print("lineVy =");Serial.println(lineVy);
+  
 }
+
 
 void setup() {
   Robot_Init();
@@ -218,9 +216,8 @@ void loop(){
           line_calibrate(); // 進入校準模式
         }
     }
-
+  readBNO085Yaw();
   linesensor_update();
-
-  
+  Vector_Motion(lineVx, lineVy);
   //moveBackInBounds();
 }

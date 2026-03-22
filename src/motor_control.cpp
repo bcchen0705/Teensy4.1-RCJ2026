@@ -18,7 +18,7 @@ void setup(){
 }
 
 void loop(){
-  if(Serial8.available()){
+  /*if(Serial8.available()){
     String packet = Serial8.readStringUntil('\n');
     packet.trim();
 
@@ -40,7 +40,8 @@ void loop(){
       vx = 0;
       vy = 0;
     }
-  }
-  
-  move();
+  }*/
+  readBNO085Yaw();
+  Serial.println(gyroData.heading);
+  Vector_Motion(0, 0);
 }

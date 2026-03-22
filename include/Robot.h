@@ -42,25 +42,25 @@ unsigned long _lastUpdate = 0;
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 
-// Motor 1 Pins
-#define pwmPin1 10    // PWM 控制腳
-#define DIRA_1 12   // 方向控制腳1
-#define DIRB_1 11
-
-// Motor 2 Pins
-#define pwmPin2 2    // PWM 控制腳
-#define DIRA_2 3   // 方向控制腳1
-#define DIRB_2 4
+// Motor 4 Pins
+#define pwmPin1 2    // PWM 控制腳
+#define DIRA_1 4   // 方向控制腳1
+#define DIRB_1 3
 
 // Motor 3 Pins
-#define pwmPin3 23    // PWM 控制腳
-#define DIRA_3 37   // 方向控制腳1
-#define DIRB_3 36
+#define pwmPin2 10    // PWM 控制腳
+#define DIRA_2 12   // 方向控制腳1
+#define DIRB_2 11
 
-// Motor 4 Pins
-#define pwmPin4 5   // PWM 控制腳
-#define DIRA_4 9    // 方向控制腳1
-#define DIRB_4 6
+// Motor 2 Pins
+#define pwmPin3 5    // PWM 控制腳
+#define DIRA_3 9   // 方向控制腳1
+#define DIRB_3 6
+
+// Motor 1 Pins
+#define pwmPin4 23  // PWM 控制腳
+#define DIRA_4 37    // 方向控制腳1
+#define DIRB_4 36 
 
 //US Sensor
 #define front_us A13
@@ -102,7 +102,7 @@ float linesensorDegreelist[32] = {
     180.00, 191.25, 202.50, 213.75, 225.00, 236.25, 247.50, 258.75, 
     270.00, 281.25, 292.50, 303.75, 315.00, 326.25, 337.50, 348.75
 };
-int8_t linesensor_ver_cor[18]={1,2,3,4,5,4,3,2,1,-1,-2,-3,-4,-5,-4,-3,-2,-1};
+//int8_t linesensor_ver_cor[18]={1,2,3,4,5,4,3,2,1,-1,-2,-3,-4,-5,-4,-3,-2,-1};
 
 // --- ROBOT CONTROL STRUCT (New: For P-control state) ---
 struct RobotControl{
@@ -132,6 +132,7 @@ void SetMotorSpeed(uint8_t port, int8_t speed);
 void MotorStop();
 void RobotIKControl(int8_t vx, int8_t vy, float omega);
 void Vector_Motion(float Vx, float Vy);
+void FC_Vector_Motion(int WVx, int WVy, float target_heading);
 void Degree_Motion(float moving_degree, int8_t speed);
 void kicker_control(bool);
 bool menuUpdate() ;
@@ -351,37 +352,7 @@ void readussensor(){
   usData.dist_r = dist_r_f;
   usData.dist_f = dist_f_f;
 }
-void showStart(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Start");
-  display.display();
-}
 
-void showLine(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Line");
-  display.display();
-}
-
-void showEmergency(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Emergency!");
-  display.display();
-}
-
-void showRunScreen(){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println("Run");
-  display.display();
-}
 */
 /*void showUS(float dist1, float dist2, float dist3) {
   display.setTextSize(1);
@@ -391,134 +362,6 @@ void showRunScreen(){
   display.display();
 }*/
 
-void showMessage(const char* message, int textSize, int x, int y) {
-    display.clearDisplay();
-    display.setTextSize(textSize);
-    display.setTextColor(SSD1306_WHITE);
-
-    int16_t x1, y1;
-    uint16_t w, h;
-    display.getTextBounds(message, 0, 0, &x1, &y1, &w, &h);
-
-    int finalX = (x == -1) ? (128 - w) / 2 : x;
-    int finalY = (y == -1) ? (64 - h) / 2 : y;
-
-    display.setCursor(finalX, finalY);
-    display.println(message);
-    display.display();
-}
-
-void showSensors() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-
-  // --- 第一列：陀螺儀 ---
-  display.setCursor(0, 0);
-  display.print("GYRO  :");
-  display.setCursor(50, 0);
-  display.print(gyroData.heading, 1); // 顯示到小數點第一位
-  display.print(" deg");
-
-  // --- 第二列：球的資訊 ---
-  display.setCursor(0, 16);
-  display.print("BALL  :");
-  display.setCursor(50, 16);
-  if (ballData.valid) {
-    display.print(ballData.angle);
-    display.print(" (D:"); 
-    display.print(ballData.dist);
-    display.print(")");
-  } else {
-    display.print("LOST");
-  }
-
-
-  // --- 第三列：球門與持球 ---
-  display.setCursor(0, 32);
-  display.print("GOAL  :");
-  display.setCursor(50, 32);
-  if (targetData.valid) {
-    display.print("X:"); display.print(targetData.x);
-  } else {
-    display.print("SEARCH");
-  }
-
-  // 下方小提示
-  display.drawLine(0, 12, 128, 12, SSD1306_WHITE); // 分隔線
-
-  display.display();
-}
-
-bool menuUpdate() {
-  bool btnUp = (digitalRead(BTN_UP) == LOW);
-  bool btnDown = (digitalRead(BTN_DOWN) == LOW);
-  bool btnEnter = (digitalRead(BTN_ENTER) == LOW);
-  //bool btnEsc = (digitalRead(BTN_ESC) == LOW);
-
-  display.clearDisplay();
-
-  // --- 頁面 0：主選單 ---
-  if (_page == 0) {
-    // 游標切換 (Up/Down)
-    if ((btnUp || btnDown) && (millis() - _lastPress > 300)) {
-      _cursor = (_cursor == 0) ? 1 : 0;
-      _lastPress = millis();
-    }
-
-    // 確認執行 (Enter)
-    if (btnEnter && (millis() - _lastPress > 500)) {
-      _lastPress = millis();
-      if (_cursor == 0) {
-        return false; // 【關鍵】回傳 false 代表離開選單，開始 attack()
-      }
-      if (_cursor == 1) {
-        _page = 1; // 進入掃描分頁
-        Serial7.write(0xAA); // 通知 ESP32 開始掃描
-      }
-    }
-
-    // 繪製主頁面 (含感測器即時數值)
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.print("CAM: "); display.println(ballData.valid ? "OK" : "NO DATA");
-    display.printf("GYRO: %.1f\n", gyroData.heading);
-    display.printf("BALL: %d\n", ballData.angle);
-    display.drawLine(0, 26, 128, 26, SSD1306_WHITE);
-
-    // 顯示選項
-    const char* options[] = {" 1.START ATTACK", " 2.LINE SCANNING"};
-    for (int i = 0; i < 2; i++) {
-      display.setCursor(5, 35 + (i * 12));
-      if (_cursor == i) display.print("> ");
-      else              display.print("  ");
-      display.print(options[i]);
-    }
-  } 
-  
-  // --- 頁面 1：掃描頁面 ---
-  else if (_page == 1) {
-    display.setTextSize(2);
-    display.setCursor(15, 10);
-    display.print("SCANNING");
-    display.setTextSize(1);
-    display.setCursor(5, 45);
-    display.print("PRESS ENTER to SAVE");
-
-    // 儲存並返回 (Enter) 或 取消 (Esc)
-    if (btnEnter && (millis() - _lastPress > 500)) {
-      _lastPress = millis();
-      for (int i = 0; i < 3; i++) {
-        Serial7.write(0xEE); // 發送結束/儲存指令
-        delay(1);
-      }
-      _page = 0; // 回到主頁面
-    }
-  }
-
-  display.display();
-  return true; // 繼續留在選單模式
-}
 /*Actuators Part*/
 void SetMotorSpeed(uint8_t port, int8_t speed){
   speed = constrain(speed,-1.5 * MAX_V, 1.5 * MAX_V);
@@ -615,6 +458,32 @@ void Vector_Motion(float Vx, float Vy){
       omega = e * control.P_factor;
   }
   RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
+}
+
+void FC_Vector_Motion(int WVx, int WVy, float target_heading) {
+    // 1. Convert gyro to Radians (math functions use radians)
+    float rad = (target_heading-90)* (M_PI / 180.0);
+    float cos_h = cos(rad);
+    float sin_h = sin(rad);
+
+    // 2. Rotate World Vectors to Robot Frame
+    int8_t robot_vx = (int8_t)(WVx * cos_h + WVy * sin_h);
+    int8_t robot_vy = (int8_t)(-WVx * sin_h + WVy * cos_h);
+    //Serial.printf("robot %d, %d\n", robot_vx, robot_vy);
+    // 3. Calculate Heading Correction (Omega)
+    float omega = 0;
+    float current_gyro_heading = 90 - gyroData.heading;
+    // Normalize error to find the shortest path to target_heading
+    float e = target_heading - current_gyro_heading;
+    while (e > 180) e -= 360;
+    while (e < -180) e += 360;
+
+    if (fabs(e) > control.heading_threshold) {
+        omega = e * control.P_factor ;
+    }
+    //Serial.printf("omege%d\n", omega);
+    // 4. Send to IK Control
+    RobotIKControl(robot_vx, robot_vy, (int8_t)omega);
 }
 
 void Degree_Motion(float moving_degree, int8_t speed){
