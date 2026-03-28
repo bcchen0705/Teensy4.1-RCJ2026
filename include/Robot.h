@@ -107,7 +107,7 @@ float linesensorDegreelist[32] = {
 // --- ROBOT CONTROL STRUCT (New: For P-control state) ---
 struct RobotControl{
     float robot_heading = 90.0;        // Target heading
-    float P_factor = 0.7;             // Proportional gain
+    float P_factor = 0.5;             // Proportional gain
     float heading_threshold = 10.0;     // Deadband (degrees)
     int8_t vx = 0;
     int8_t vy = 0;

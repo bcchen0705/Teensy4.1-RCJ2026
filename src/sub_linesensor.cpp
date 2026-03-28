@@ -218,6 +218,6 @@ void loop(){
     }
   readBNO085Yaw();
   linesensor_update();
-  Vector_Motion(lineVx, lineVy);
+  Vector_Motion(0, 0);
   //moveBackInBounds();
 }
