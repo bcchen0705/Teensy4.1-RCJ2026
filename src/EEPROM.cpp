@@ -84,5 +84,4 @@ void loop() {
   }
 
   Serial.println("Finished");
-  while(1);
 }

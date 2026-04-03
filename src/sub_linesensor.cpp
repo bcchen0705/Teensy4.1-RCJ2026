@@ -22,6 +22,7 @@ void line_calibrate();
 void linesensor_update();
 void moveBackInBounds();
 
+
 const uint8_t mapTable[32] = {
   0, 1, 2, 3, 4, 5, 6, 7,
   8, 9, 10, 11, 12, 13, 14, 15,
@@ -52,6 +53,7 @@ int readMux(int ch, int sigPin) {
   digitalWrite(s1, (ch >> 1) & 1);
   digitalWrite(s2, (ch >> 2) & 1);
   digitalWrite(s3, (ch >> 3) & 1);
+
   delay(1);
 
   // 3. 【重要】空讀一次：把 ADC 內部的殘留電荷放掉
@@ -101,6 +103,7 @@ void line_calibrate(){
 //更新
 void linesensor_update(){
   lineData.state = 0xFFFFFFFF;
+  
   for (uint8_t i = 0; i < LS_count; i++) {
     uint16_t reading = readMux(i, (i < 16) ? M1 : M2);;
     
@@ -111,6 +114,7 @@ void linesensor_update(){
       //Serial.println();
     }
   }
+
   /*for (int i = LS_count - 1; i >= 0; i--) {
     uint8_t bit = (lineData.state >> i) & 1;
     Serial.print(bit);
@@ -122,7 +126,9 @@ void linesensor_update(){
   Serial.println(" ");
   delay(50);*/
 
-//-----LINE SENSOR-----
+}
+void moveBackInBounds(){
+  //-----LINE SENSOR-----
   float sumX = 0.0f, sumY = 0.0f;
   int count = 0;
   bool linedetected = false;
@@ -187,11 +193,12 @@ void linesensor_update(){
   Serial.print("lineVx =");Serial.println(lineVx);
   Serial.print("lineVy =");Serial.println(lineVy);
   
-}
 
+}
 
 void setup() {
   Robot_Init();
+  Serial2.begin(115200);
 
   pinMode(s0, OUTPUT);
   pinMode(s1, OUTPUT);
@@ -218,6 +225,6 @@ void loop(){
     }
   readBNO085Yaw();
   linesensor_update();
-  Vector_Motion(0, 0);
-  //moveBackInBounds();
+  moveBackInBounds();
+  Vector_Motion(lineVx, lineVy);
 }
