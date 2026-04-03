@@ -42,7 +42,5 @@ void loop(){
       vy = 0;
     }
   }*/
-  readBNO085Yaw();
-  Serial.println(gyroData.heading);
-  Vector_Motion(0, 0);
+  Vector_Motion(0, 10);
 }

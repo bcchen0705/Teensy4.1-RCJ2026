@@ -53,24 +53,18 @@ int readMux(int ch, int sigPin) {
   digitalWrite(s1, (ch >> 1) & 1);
   digitalWrite(s2, (ch >> 2) & 1);
   digitalWrite(s3, (ch >> 3) & 1);
-
-  delay(1);
-
-  // 3. 【重要】空讀一次：把 ADC 內部的殘留電荷放掉
-  analogRead(sigPin);
-
-  uint16_t temp = analogRead(sigPin);
-  return temp;
+  delayMicroseconds(10);
+  if(sigPin == 1)return analogRead(M1);
+  if(sigPin == 2)return analogRead(M2);
 }
 
 //量線
 void line_calibrate(){
-  Serial.print("cal");
   for(int i=0; i<LS_count; i++){
     max_ls[i] = 0;
     min_ls[i] = 4095;
   }
-  while(true){
+  while(1){
 
     if(Serial8.available()){
       if(Serial8.read() == 'E'){
@@ -85,7 +79,7 @@ void line_calibrate(){
     }
 
     for(uint8_t i = 0; i < LS_count; i++){
-    uint16_t reading = readMux(i, (i < 16) ? M1 : M2);
+    uint16_t reading = readMux(i, (i < 16) ? 1 : 2);
 
     if(reading > max_ls[i]) max_ls[i] = reading;
     if(reading < min_ls[i]) min_ls[i] = reading;
@@ -96,7 +90,6 @@ void line_calibrate(){
       avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
   }
   EEPROM.put(0, avg_ls);
-
   Serial8.print('D');
 }
 
@@ -105,7 +98,7 @@ void linesensor_update(){
   lineData.state = 0xFFFFFFFF;
   
   for (uint8_t i = 0; i < LS_count; i++) {
-    uint16_t reading = readMux(i, (i < 16) ? M1 : M2);;
+    uint16_t reading = readMux(i % 16, (i < 16) ? 1 : 2);;
     
     if (reading < avg_ls[i]) {
       lineData.state &= ~(1UL << i); 
@@ -152,15 +145,15 @@ void moveBackInBounds(){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
     
-    Serial.print("degree=");Serial.println(lineDegree);
+    //Serial.print("degree=");Serial.println(lineDegree);
 
     if (!first_detect){
       init_lineDegree = lineDegree;
       first_detect = true;
       speed_timer = millis();
       
-      //Serial.println("LINE DETECTED !!!");
-      //Serial.print("initlineDegree =");Serial.println(init_lineDegree);
+      Serial.println("LINE DETECTED !!!");
+      Serial.print("initlineDegree =");Serial.println(init_lineDegree);
     }
 
     diff = fabs(lineDegree - init_lineDegree);
@@ -217,12 +210,12 @@ void setup() {
 
 void loop(){
   if (Serial8.available()) {
-        char cmd = Serial8.read();
-        Serial.print(cmd);
-        if (cmd == 'C') {
-          line_calibrate(); // 進入校準模式
-        }
+    char cmd = Serial8.read();
+    //Serial.print(cmd);
+    if (cmd == 'C') {
+      line_calibrate(); // 進入校準模式
     }
+  }
   readBNO085Yaw();
   linesensor_update();
   moveBackInBounds();
