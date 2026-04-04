@@ -94,6 +94,8 @@ struct GyroData{float heading = 0.0; float pitch = 0.0; bool valid = false;} gyr
 struct BallData{uint8_t dist = 255; uint8_t angle = 255; uint8_t possession = 255; bool valid = false; float Vx; float Vy;} ballData;
 struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
 struct CamData{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} targetData;
+struct LeftEye{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} leftData;
+struct RightEye{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} rightData;
 
 
 float linesensorDegreelist[32] = {
@@ -119,7 +121,8 @@ struct RobotControl{
 // Including prototypes for the new functions and existing ones
 void Robot_Init();
 void readBNO085Yaw();
-void readCameraData();
+void LeftEye();
+void RightEye();
 void ballsensor();
 void linesensor();
 void positionEst();
@@ -254,10 +257,10 @@ void readBNO085Yaw(){
   }
 }
 
-void readCameraData(){
+void LeftEye(){
   static uint8_t buffer[10];
   uint8_t index = 0;
-  targetData.valid = false;
+  leftData.valid = false;
   while (Serial5.available()){
     uint8_t b = Serial5.read();
     if(index == 0 && b != 0xCC){
@@ -266,13 +269,38 @@ void readCameraData(){
     buffer[index++] = b;
     if(index == 10){  // 收滿 10 bytes
       if(buffer[0] == 0xCC && buffer[9] == 0xEE){
-        targetData.x = buffer[1] | (buffer[2] << 8);
-        targetData.y = buffer[3] | (buffer[4] << 8);
-        targetData.w = buffer[5] | (buffer[6] << 8);
-        targetData.h = buffer[7] | (buffer[8] << 8);
-        targetData.valid = true;  
-        if(targetData.x == 65535 || targetData.y == 65535 || targetData.w == 65535 || targetData.h == 65535){
-          targetData.valid = false;  
+        leftData.x = buffer[1] | (buffer[2] << 8);
+        leftData.y = buffer[3] | (buffer[4] << 8);
+        leftData.w = buffer[5] | (buffer[6] << 8);
+        leftData.h = buffer[7] | (buffer[8] << 8);
+        leftData.valid = true;  
+        if(leftData.x == 65535 || leftData.y == 65535 || leftData.w == 65535 || leftData.h == 65535){
+          leftData.valid = false;  
+        }            
+      }
+      index = 0;  // reset buffer
+    }
+  }
+}
+void RightEye(){
+  static uint8_t buffer[10];
+  uint8_t index = 0;
+  rightData.valid = false;
+  while (Serial3.available()){
+    uint8_t b = Serial3.read();
+    if(index == 0 && b != 0xCC){
+      continue;  // 等待開頭 0xCC
+    }
+    buffer[index++] = b;
+    if(index == 10){  // 收滿 10 bytes
+      if(buffer[0] == 0xCC && buffer[9] == 0xEE){
+        rightData.x = buffer[1] | (buffer[2] << 8);
+        rightData.y = buffer[3] | (buffer[4] << 8);
+        rightData.w = buffer[5] | (buffer[6] << 8);
+        rightData.h = buffer[7] | (buffer[8] << 8);
+        rightData.valid = true;  
+        if(rightData.x == 65535 || rightData.y == 65535 || rightData.w == 65535 || rightData.h == 65535){
+          rightData.valid = false;  
         }            
       }
       index = 0;  // reset buffer
