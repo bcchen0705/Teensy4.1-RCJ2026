@@ -15,7 +15,7 @@
 #define s3 A5
 #define LS_count 32
 
-struct LineData{uint32_t state = 0xFFFFFFFF;} lineData;
+struct LineData lineData;
 
 int readMux(int ch, int sigPin);
 void line_calibrate();
@@ -23,29 +23,10 @@ void linesensor_update();
 void moveBackInBounds();
 
 
-const uint8_t mapTable[32] = {
-  0, 1, 2, 3, 4, 5, 6, 7,
-  8, 9, 10, 11, 12, 13, 14, 15,
-  16, 17, 18, 19, 20, 21, 22, 23,
-  24, 25, 26, 27, 28, 29, 30, 31
-};
 
 uint16_t max_ls[LS_count];
 uint16_t avg_ls[LS_count];
 uint16_t min_ls[LS_count];
-
-//SPEED
-float lineVx = 0;
-float lineVy = 0;
-
-float init_lineDegree = -1;
-float diff = 0;
-bool emergency = false;
-bool start = false;
-bool overhalf = false;
-bool first_detect = false;
-uint32_t speed_timer = 0;
-
 
 int readMux(int ch, int sigPin) {
 

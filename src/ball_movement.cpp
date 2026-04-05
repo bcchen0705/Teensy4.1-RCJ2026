@@ -2,22 +2,6 @@
 #include <Arduino.h>
 #include <Robot.h>
 #include <math.h>
-
-#define TRIG1 32
-#define TRIG2 31
-#define TRIG3 30
-#define TRIG4 29
-#define TRIG5 28
-#define TRIG6 27
-#define TRIG7 26
-
-bool left;
-bool right;
-bool middle;
-
-int vx;
-int vy;
-
 void setup(){
   Robot_Init();
 

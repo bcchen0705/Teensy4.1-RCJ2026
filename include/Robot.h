@@ -44,23 +44,23 @@ unsigned long _lastUpdate = 0;
 
 // Motor 4 Pins
 #define pwmPin1 2    // PWM 控制腳
-#define DIRA_1 4   // 方向控制腳1
-#define DIRB_1 3
+#define DIRA_1 3   // 方向控制腳1
+#define DIRB_1 4
 
 // Motor 3 Pins
 #define pwmPin2 10    // PWM 控制腳
-#define DIRA_2 12   // 方向控制腳1
-#define DIRB_2 11
+#define DIRA_2 11   // 方向控制腳1
+#define DIRB_2 12
 
 // Motor 2 Pins
 #define pwmPin3 5    // PWM 控制腳
-#define DIRA_3 9   // 方向控制腳1
-#define DIRB_3 6
+#define DIRA_3 6   // 方向控制腳1
+#define DIRB_3 9
 
 // Motor 1 Pins
 #define pwmPin4 23  // PWM 控制腳
-#define DIRA_4 37    // 方向控制腳1
-#define DIRB_4 36 
+#define DIRA_4 36    // 方向控制腳1
+#define DIRB_4 37 
 
 //US Sensor
 #define front_us A13
@@ -91,13 +91,13 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 struct GyroData{float heading = 0.0; float pitch = 0.0; bool valid = false;} gyroData;
 //struct LineData{uint32_t state = 0x3FFFF; bool valid = false;} lineData;
-struct BallData{uint8_t dist = 255; uint8_t angle = 255; uint8_t possession = 255; bool valid = false; float Vx; float Vy;} ballData;
+struct BallData{uint16_t dist = 255; uint16_t angle = 255; uint16_t possession = 255; bool valid = false; float Vx; float Vy;} ballData;
 struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
 struct CamData{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} targetData;
 struct LeftEye{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} leftData;
 struct RightEye{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} rightData;
 
-
+float ballDegreelist[16]={22.5,45,67.5,87.5,92.5,112.5,135,157.5,202.5,225,247.5,265,275,292.5,315,337.5};
 float linesensorDegreelist[32] = {
     0.00, 11.25, 22.50, 33.75, 45.00, 56.25, 67.50, 78.75, 
     90.00, 101.25, 112.50, 123.75, 135.00, 146.25, 157.50, 168.75, 
@@ -307,19 +307,44 @@ void RightEye(){
     }
   }
 }
-void readBallCam(){
+void ballsensor(){
+  // 發送請求封包，通知感測器回傳資料
+  uint8_t b[4];
+  ballData.valid = false;
+
+  Serial6.write(0xBB);
+  while(!Serial6.available());
+  Serial6.readBytes(b,4);
+  if(b[1]==0xFF){
+      ballData.valid = false;
+      ballData.angle = 255;
+      ballData.dist = 255;
+  }
+  else if(b[0]==0xAA){
+    uint8_t temp =b[1];
+    ballData.valid = true;
+    ballData.angle = (temp & 0x0F);
+    ballData.dist = (temp & 0xF0)>>4;
+    ballData.possession = (uint8_t)((1-alpha) * b[2] + ballData.possession * alpha);
+  }
+  else{
+    ballData.valid = false;
+  }
+}
+
+/*void readBallCam(){
     
-    static uint8_t buffer[6] = {0};
-    static uint8_t idx = 0;
+    static uint16_t buffer[6] = {0};
+    static uint16_t idx = 0;
     while(Serial4.available()){
-        uint8_t b = Serial4.read();
+        uint16_t b = Serial4.read();
         if(idx == 0 && b != 0xCC){continue;} //wait for 0xCC
         buffer[idx++] = b;
 
         if(idx == 6){ //裝包 共6組
             if(buffer[0] == 0xCC && buffer[5] == 0xEE){
-               ballData.angle = buffer[1] | (buffer[2] << 8);
-               ballData.dist = buffer[3] | (buffer[4] << 8);
+              ballData.angle = (uint16_t)buffer[1] | ((uint16_t)buffer[2] << 8);
+              ballData.dist  = (uint16_t)buffer[3] | ((uint16_t)buffer[4] << 8);
             
                if(ballData.angle != 65535 && ballData.dist != 65535)
                 ballData.valid = true;
@@ -333,7 +358,7 @@ void readBallCam(){
             idx = 0;  // reset buffer
         }  
     }
-}
+}*/
 /*
 void linesensor(){
   uint8_t buffer[7];

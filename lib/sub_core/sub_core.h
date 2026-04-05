@@ -44,8 +44,14 @@ struct MainCoreCommand
 };
 
 struct LineData{
-  uint32_t state = 0;
-  bool detected = false;
+  float lineVx = 0, lineVy = 0;
+  bool first_detect = false;
+  float init_lineDegree = -1;
+  float diff = 0;
+  bool overhalf = false;
+  int EMERGENCY_THRESHOLD = 90;
+  uint32_t speed_timer = 0;    
+  uint32_t line_state = 0xFFFFFFFF;
 };
 
 struct GyroData{
@@ -64,16 +70,26 @@ struct RobotControl{
 };
 
 // --- Global Variable Declarations (Externs) ---
-extern LineData line;           
+extern LineData lineData;           
 extern MainCoreCommand mainCommand; // Added for MainCoreCommand usage  
 extern GyroData gyroData;       
 extern RobotControl control;        // Added to match Vector_Motion usage
-extern uint16_t avg_ls[32];     
+extern uint16_t avg_ls[32]; 
+extern uint16_t max_ls[32];
+extern uint16_t min_ls[32];
+
+
 
 // --- Actuators & IK Prototypes ---
+void sub_core_init();
+void line_calibrate();
+void linesensor_update();
+void moveBackInBounds();
+void readBNO085Yaw();
 void SetMotorSpeed(uint8_t port, float speed);
 void RobotIKControl(float vx, float vy, float omega);
 void Vector_Motion(float Vx, float Vy, int rot_V);
 void FC_Vector_Motion(float WVx, float WVy, float target_heading);
+uint32_t readfrom_MainCore();
 
 #endif
