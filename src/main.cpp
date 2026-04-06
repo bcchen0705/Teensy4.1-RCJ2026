@@ -5,7 +5,7 @@
 #include <Robot.h>
 #include <math.h>
 
-#define possession_Threshold 205
+#define possession_Threshold 150
 
 //CAMERA
 unsigned long lastCameraUpdate = 0;  // 記錄上次執行時間
@@ -18,32 +18,64 @@ const unsigned long interval = 50;  // 20Hz = 每50毫秒一次
 
 void setup(){
   Robot_Init();
+
+  #define front A15
+  #define left A14
+  #define back A17
+  #define right A16
+
+  drawMessage("START");
 }
 void loop(){
+  float dist_b_raw = analogRead(back) * 520.0f / 1024.0f;
+  float dist_l_raw = analogRead(left) * 520.0f / 1024.0f;
+  float dist_r_raw = analogRead(right) * 520.0f / 1024.0f;
+  float dist_f_raw = analogRead(front) * 520.0f / 1024.0f;
   ballsensor();
-
+  if (digitalRead(BTN_ENTER) == LOW) {
+    Serial8.print('C'); // 傳送校準指令
+    drawMessage("SCANNING...");
+    delay(200); 
+  }
+  if (digitalRead(BTN_ESC) == LOW) {
+    Serial8.print('E'); // 傳送結束指令
+    delay(200); 
+  }
+  if(Serial8.available()){
+    if(Serial8.read() == 'D'){
+      Serial.println(Serial8.read());
+      drawMessage("SAVED!");
+      delay(1000); // 讓 SAVED 停一下
+        
+        // 回到初始狀態
+      drawMessage("READY");
+      delay(200);
+    }
+  }
   if (ballData.valid) { // --- IF 開始 ---
     float ballDegree = ballDegreelist[ballData.angle];
     float offset = 0;
-    float ballspeed = map(ballData.dist, 0, 12, 20, 40);
+    float ballspeed = 50;
     float moving_Degree = ballDegree;
 
-    if(ballData.dist > 7){
+    if(ballData.dist > 6  ){
       moving_Degree = ballDegree;
     }
     
     else {
-      double offsetRatio = exp(-0.55 * (ballData.dist - 7));
+      double offsetRatio = exp(-0.55 * (ballData.dist - 6));
       offsetRatio = (offsetRatio > 1) ? 1 : offsetRatio;
-      offset = 95 * offsetRatio;
-      offset = (ballDegree > 90) ? offset : -offset;
-      offset = (ballDegree < 270) ? offset : -offset;
-
-      moving_Degree = ballDegree + offset;
+      offset = 45 + 45 * offsetRatio;
+      if (ballDegree > 90 && ballDegree < 270) {
+        moving_Degree = ballDegree + offset;
+      } else {
+        moving_Degree = ballDegree - offset;
+      }
     }
+  
     if (ballDegree == 87.5 || ballDegree == 92.5) {
       offset = 0;
-      ballspeed = 30;
+      ballspeed = 50;
       moving_Degree = 90;
     }
     
@@ -55,15 +87,33 @@ void loop(){
       //ballData.Vx = 0;
       //ballData.Vy = 30;
     //}
-    ballspeed = constrain(ballspeed, 20, 40);
-
+    ballspeed = constrain(ballspeed, 20, 50);
+    if(dist_r_raw <= 29 ){
+      if(ballData.Vx > 0){
+      ballData.Vx = 0;
+      }
+    }
+    else if(dist_r_raw <= 31){
+      if(ballData.Vx > 0){
+        ballData.Vx *= 0.5; 
+      }
+    }
+    else if(dist_r_raw <= 40){
+      if(ballData.Vx > 0){
+        ballData.Vx *= 0.7;
+      }
+    }
+    else{
+      ballData.Vx = ballData.Vx;
+    }
     
-    String packet = String(ballData.Vx) + "," + String(ballData.Vy); 
+    Serial.print("r= ");Serial.println(dist_r_raw);
+    String packet = String(ballData.Vx) + "," + String(ballData.Vy) +  "," + String(ballDegree) + "," + String(ballData.dist); 
     Serial8.println(packet);
     //Serial.print("Angle: "); Serial.println(ballDegree);
     //Serial.print("Dist: "); Serial.println(ballData.dist);
     Serial.print("vx= ");Serial.println(ballData.Vx);
-    Serial.print("vy= ");Serial.println(ballData.Vy);
+    //Serial.print("vy= ");Serial.println(ballData.Vy);
   } 
   else { 
     Serial8.println("No Ball Detected");

@@ -63,10 +63,10 @@ unsigned long _lastUpdate = 0;
 #define DIRB_4 37 
 
 //US Sensor
-#define front_us A13
-#define back_us A8
-#define left_us A12
-#define right_us A14
+#define front_us A15
+#define left_us A14
+#define back_us A17
+#define right_us A16
 #define alpha 0.75
 float pos_x_f = 0.0;
 float pos_y_f = 0.0;
@@ -129,6 +129,7 @@ void positionEst();
 void showStart();
 void showLine();
 void showRunScreen();
+void drawMessage();
 void showMessage(const char* message, int textSize = 2, int x = -1, int y = -1);
 void showSensors(float gyro, int ballAngle);
 void SetMotorSpeed(uint8_t port, int8_t speed);
@@ -381,7 +382,7 @@ void linesensor(){
     lineData.valid = false;  // checksum error
   }
 }*/
-/*
+
 void readussensor(){
   // static variables remember their values between calls
   static float dist_b_f = 0.0f;
@@ -406,7 +407,7 @@ void readussensor(){
   usData.dist_f = dist_f_f;
 }
 
-*/
+
 /*void showUS(float dist1, float dist2, float dist3) {
   display.setTextSize(1);
   display.setCursor(60, 0);  display.print("d_l ");  display.println(dist1);
@@ -492,10 +493,13 @@ void MotorStop(){
 
 void RobotIKControl(int8_t vx, int8_t vy, float omega){
   // Note: Cast omega to int8_t for consistent data types in the IK control matrix
-  int8_t p1 = -vx + vy + (int8_t)omega;
-  int8_t p2 = -vx - vy + (int8_t)omega;
-  int8_t p3 = vx - vy + (int8_t)omega;
-  int8_t p4 = vx + vy + (int8_t)omega;
+  int8_t p1 = -0.643f * vx + 0.766f * vy + (int8_t)omega;
+  int8_t p2 = -0.643f * vx - 0.766f * vy + (int8_t)omega;
+  int8_t p3 = 0.707f * vx - 0.707f * vy + (int8_t)omega;
+  int8_t p4 = 0.707f * vx + 0.707f * vy + (int8_t)omega;
+
+  p1 = p1*0.9;
+  p4 = p4* 0.9;
   SetMotorSpeed(1, p1);
   SetMotorSpeed(2, p2);
   SetMotorSpeed(3, p3);
@@ -593,6 +597,14 @@ void kicker_control(bool kick = false){
     Serial.println("kick");
     charging_state = false;
   }
+}
+// 封裝一個刷螢幕的函式，確保不會亂閃
+void drawMessage(const char* msg) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(0, 20);
+  display.println(msg);
+  display.display(); // 只有呼叫這函式時才會真正動到螢幕
 }
 
 // INTERRUPT
