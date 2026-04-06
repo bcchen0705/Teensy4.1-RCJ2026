@@ -15,7 +15,7 @@
 #define s3 A5
 #define LS_count 32
 
-struct LineData lineData;
+struct LineData{uint32_t state = 0xFFFFFFFF;} lineData;
 
 int readMux(int ch, int sigPin);
 void line_calibrate();
@@ -27,6 +27,17 @@ void moveBackInBounds();
 uint16_t max_ls[LS_count];
 uint16_t avg_ls[LS_count];
 uint16_t min_ls[LS_count];
+//SPEED
+float lineVx = 0;
+float lineVy = 0;
+
+float init_lineDegree = -1;
+float diff = 0;
+bool emergency = false;
+bool start = false;
+bool overhalf = false;
+bool first_detect = false;
+uint32_t speed_timer = 0;
 
 int readMux(int ch, int sigPin) {
 
@@ -60,7 +71,7 @@ void line_calibrate(){
     }
 
     for(uint8_t i = 0; i < LS_count; i++){
-    uint16_t reading = readMux(i, (i < 16) ? 1 : 2);
+    uint16_t reading = readMux(i % 16, (i < 16) ? 1 : 2);
 
     if(reading > max_ls[i]) max_ls[i] = reading;
     if(reading < min_ls[i]) min_ls[i] = reading;
@@ -155,8 +166,8 @@ void moveBackInBounds(){
     }
     Serial.print("finalDegree =");Serial.println(finalDegree);
         
-    lineVx = 50.0f *cos(finalDegree * DtoR_const);
-    lineVy = 50.0f *sin(finalDegree * DtoR_const);   
+    lineVx = 40.0f *cos(finalDegree * DtoR_const);
+    lineVy = 40.0f *sin(finalDegree * DtoR_const);   
   }
   else{
     first_detect = false;
