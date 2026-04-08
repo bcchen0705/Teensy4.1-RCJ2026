@@ -109,7 +109,7 @@ float linesensorDegreelist[32] = {
 // --- ROBOT CONTROL STRUCT (New: For P-control state) ---
 struct RobotControl{
     float robot_heading = 90.0;        // Target heading
-    float P_factor = 0.5;             // Proportional gain
+    float P_factor = 0.55;             // Proportional gain
     float heading_threshold = 10.0;     // Deadband (degrees)
     int8_t vx = 0;
     int8_t vy = 0;
@@ -498,14 +498,12 @@ void RobotIKControl(int8_t vx, int8_t vy, float omega){
   int8_t p3 = 0.707f * vx - 0.707f * vy + (int8_t)omega;
   int8_t p4 = 0.707f * vx + 0.707f * vy + (int8_t)omega;
 
-  p1 = p1*0.9;
-  p4 = p4* 0.9;
   SetMotorSpeed(1, p1);
   SetMotorSpeed(2, p2);
   SetMotorSpeed(3, p3);
   SetMotorSpeed(4, p4);
 }
-
+/*
 void Vector_Motion(float Vx, float Vy){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
@@ -515,6 +513,21 @@ void Vector_Motion(float Vx, float Vy){
       omega = e * control.P_factor;
   }
   RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
+}*/
+void Vector_Motion(float Vx, float Vy, float target_offset){  
+  float omega = 0.0;
+  float current_gyro_heading = gyroData.heading;
+  float sensor_heading = 90.0 - current_gyro_heading;
+  float final_target = 90 + target_offset;
+  float e = final_target - sensor_heading;
+  if (e > 180) e -= 360;
+  if (e < -180) e += 360;
+  if(fabs(e) > control.heading_threshold){
+      omega = e * control.P_factor;
+  }
+
+  RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
+
 }
 
 void FC_Vector_Motion(int WVx, int WVy, float target_heading) {

@@ -68,7 +68,7 @@ void line_calibrate(){
   while(1){
 
     if(Serial8.available()){
-      if(Serial8.read() == 'E'){
+      if(Serial8.read() == 0xEE){
         for(uint8_t i = 0; i < LS_count; i++){
           Serial.print(" min ");Serial.print(i);Serial.print(" = ");Serial.print(min_ls[i]);
           Serial.print(" max ");Serial.print(i);Serial.print(" = ");Serial.print(max_ls[i]);
@@ -91,7 +91,7 @@ void line_calibrate(){
       avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
   }
   EEPROM.put(0, avg_ls);
-  Serial8.print('D');
+  Serial8.write(0xDD);
 }
 
 //更新
@@ -182,38 +182,61 @@ bool moveBackInBounds(){
     return true;  
   }
   else{
-    first_detect = false;
+    init_lineDegree = -1;
+    diff = 0;
     lineVx = 0;
     lineVy = 0;
+    overhalf = false;
+    first_detect = false;
     return false;
   }
 }
 
 void readMainCore() {
-  if (Serial8.available()) {
-    char peekChar = Serial8.peek();
-    if (peekChar == 'C') { 
-      Serial8.read(); 
-      line_calibrate(); 
-      return; 
+
+  while (Serial8.available()) {
+
+    uint8_t c = Serial8.peek();
+
+    // ===== COMMAND =====
+    if (c == 0xCC) {
+      Serial8.read();
+      line_calibrate();
+      continue;
     }
 
-    String packet = Serial8.readStringUntil('\n');
-    packet.trim();
+    // ===== DATA FRAME =====
+    if (Serial8.available() < 8) return;
 
-    if (packet == "No Ball Detected" || packet == "") {
-      vx = 0; vy = 0;ballDeg = -1;
-    } else {
-      int firstComma = packet.indexOf(',');
-      int secondComma = packet.indexOf(',', firstComma + 1);
-      int thirdComma = packet.indexOf(',', secondComma + 1);
-      if (firstComma != -1 && secondComma != -1 && thirdComma != -1) {
-        vx = packet.substring(0, firstComma).toFloat();
-        vy = packet.substring(firstComma + 1, secondComma).toFloat();
-        ballDeg = packet.substring(secondComma + 1, thirdComma).toFloat(); // 取得真實球角
-        ballDist = packet.substring(thirdComma + 1).toFloat();
-      }
+    if (Serial8.read() != 0xAA) continue;
+    if (Serial8.read() != 0xAA) continue;
+
+    uint8_t buffer[8];
+    buffer[0] = 0xAA;
+    buffer[1] = 0xAA;
+
+    for (int i = 2; i < 8; i++) {
+      buffer[i] = Serial8.read();
     }
+
+    // check end
+    if (buffer[7] != 0xEE) continue;
+
+    // checksum
+    uint8_t sum = 0;
+    for (int i = 2; i <= 5; i++) {
+      sum += buffer[i];
+    }
+    if (sum != buffer[6]) continue;
+
+    // decode
+    int16_t vx_i = (buffer[3] << 8) | buffer[2];
+    int16_t vy_i = (buffer[5] << 8) | buffer[4];
+
+    vx = vx_i;
+    vy = vy_i;
+
+    return; // 一次只處理一包
   }
 }
 
@@ -241,16 +264,17 @@ void loop(){
   linesensor_update();
   bool onLine = moveBackInBounds();
   
-  if(onLine){
+  /*if(onLine){
     finalVx = lineVx;
     finalVy = lineVy;
   }
   else{
       finalVx = vx;
       finalVy = vy;
-  }
-    
-  Vector_Motion(0, 30);
+  }*/
+  finalVx = vx;
+  finalVy = vy;
+  Vector_Motion(finalVx, finalVy, 0);
   Serial.print("vx= ");Serial.println(finalVx);
-  //Serial.print("vy= ");Serial.println(finalVy);
+  Serial.print("vy= ");Serial.println(finalVy);
 }
