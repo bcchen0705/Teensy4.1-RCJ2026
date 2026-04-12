@@ -55,8 +55,8 @@ void readMainCore() {
 void loop(){
   readMainCore();
   readBNO085Yaw();
-  float omg = omega/100;
-  Serial.println(omg);
-  delay(500);
-  //Vector_Motion(0,0,omg);
+
+  float omg = -omega/1000;
+  Serial.println(omg, 3);
+  Vector_Motion(0,0,omg);
 }

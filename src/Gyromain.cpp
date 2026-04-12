@@ -2,8 +2,8 @@
 #include <Arduino.h>
 #include <Robot.h>
 
-int final_omega;
-int out_omega;
+float final_omega;
+float out_omega;
 void setup(){
   Robot_Init();
 
@@ -13,24 +13,27 @@ void loop(){
   
   if(camData.goal_valid){
     Serial.print("X= ");Serial.println(camData.goal_x);
-    Serial.print("Y= ");Serial.println(camData.goal_y);
-    Serial.print("W= ");Serial.println(camData.goal_w);
-    Serial.print("H= ");Serial.println(camData.goal_h);
+    //Serial.print("Y= ");Serial.println(camData.goal_y);
+    //Serial.print("W= ");Serial.println(camData.goal_w);
+    //Serial.print("H= ");Serial.println(camData.goal_h);
     Serial.println("------");
   }
   int final_omega = 0;
 
   // 2. 判斷邏輯（建議將左右眼邏輯整合，避免互相覆蓋）
   // 假設兩邊都看到，則需要一個綜合判斷
-  int finaltarget_x = camData.goal_x - 160; 
-  if (finaltarget_x <= 20 && finaltarget_x >= -20) {
-    final_omega = 0; 
-  } 
-  else if (finaltarget_x > 20) {
-    final_omega = 1;  // 往右修
-  }
-  else if(finaltarget_x < -20){
-    final_omega = -1;   //往左
+  int error = camData.goal_x - 125;
+
+  // 比例控制（重點）
+  final_omega = error * 0.1;
+
+  // 限制最大輸出
+  if (final_omega > 10) final_omega = 10;
+  if (final_omega < -10) final_omega = -10;
+
+  // 死區（避免抖）
+  if (abs(error) < 70) {
+    final_omega = 0;
   }
   Serial.println(final_omega);
   // 3. 封包準備

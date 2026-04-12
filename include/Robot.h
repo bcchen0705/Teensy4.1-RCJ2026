@@ -263,8 +263,8 @@ void readBNO085Yaw(){
 void readcamera(){
   static uint8_t buffer[20]; // 稍微開大一點點
   static uint8_t index = 0;
-  while (Serial3.available()){
-    uint8_t b = Serial3.read();
+  while (Serial5.available()){
+    uint8_t b = Serial5.read();
     
     if(index == 0 && b != 0xCC){
       continue;  // 等待開頭 0xCC
@@ -545,10 +545,10 @@ void RobotIKControl(int8_t vx, int8_t vy, float omega){
   int8_t p2 =  -vx -  vy + (int8_t)omega;
   int8_t p3 =  vx -  vy + (int8_t)omega;
   int8_t p4 =  vx + vy + (int8_t)omega;
-  Serial.print("p1= ");Serial.println(p1);
-  Serial.print("p2= ");Serial.println(p2);
-  Serial.print("p3= ");Serial.println(p3);
-  Serial.print("p4= ");Serial.println(p4);
+  //Serial.print("p1= ");Serial.println(p1);
+  //Serial.print("p2= ");Serial.println(p2);
+  //Serial.print("p3= ");Serial.println(p3);
+  //Serial.print("p4= ");Serial.println(p4);
   SetMotorSpeed(1, p1);
   SetMotorSpeed(2, p2);
   SetMotorSpeed(3, p3);
@@ -572,6 +572,7 @@ void Vector_Motion(float Vx, float Vy, float rot_V) {
     while (e < -180) e += 360;
 
     float omega = (fabs(e) > control.heading_threshold) ? (e * control.P_factor) : 0;
+    omega *= 0.5;
     RobotIKControl(Vx, Vy, omega);
 }
 /*void Vector_Motion(float Vx, float Vy){  
