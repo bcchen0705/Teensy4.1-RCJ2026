@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <Robot.h>
 
- float Deg_offset;
+ float omega;
 
 void setup(){
   Robot_Init();
@@ -10,46 +10,53 @@ void setup(){
 }
 
 void readMainCore() {
-while (Serial8.available()) {
+  // 使用 static 確保函數結束後 index 不會歸零
+  static uint8_t buffer[6];
+  static int index = 0;
 
+  while (Serial8.available() > 0) {
+    uint8_t b = Serial8.read();
 
-
-    // ===== DATA FRAME =====
-    if (Serial8.available() < 6) return;
-
-    if (Serial8.read() != 0xAA) continue;
-    if (Serial8.read() != 0xAA) continue;
-
-    uint8_t buffer[6];
-    buffer[0] = 0xAA;
-    buffer[1] = 0xAA;
-
-    for (int i = 2; i < 6; i++) {
-      buffer[i] = Serial8.read();
+    // 狀態 0 & 1：找標頭 0xAA
+    if (index == 0 || index == 1) {
+      if (b == 0xAA) {
+        buffer[index++] = b;
+      } else {
+        index = 0; // 不是 AA 就重來
+      }
+      continue;
     }
 
-    // check end
-    if (buffer[5] != 0xEE) continue;
+    // 狀態 2~5：填充後續數據
+    buffer[index++] = b;
 
-    // checksum
-    uint8_t sum = 0;
-    for (int i = 0; i <= 3; i++) {
-      sum += buffer[i];
+    // 收滿 6 byte 開始檢查
+    if (index == 6) {
+      index = 0; // 準備下一包
+
+      // 檢查結尾 0xEE
+      if (buffer[5] != 0xEE) continue;
+
+      // 檢查校驗和 Checksum
+      uint8_t sum = 0;
+      for (int i = 0; i <= 3; i++) {
+        sum += buffer[i];
+      }
+      
+      if (sum == buffer[4]) {
+        // 解析數據
+        int16_t finalomega = (int16_t)((buffer[3] << 8) | buffer[2]);
+        omega = finalomega;
+        // Serial.println(Deg_offset); // Debug 用
+      }
     }
-    if (sum != buffer[4]) continue;
-
-    // decode
-    int16_t Deg = (buffer[3] << 8) | buffer[2];
-
-    Deg_offset = Deg;
-
-    return; // 一次只處理一包
   }
 }
-
 void loop(){
   readMainCore();
   readBNO085Yaw();
-  Vector_Motion(0,0,0);
-
+  float omg = omega/100;
+  Serial.println(omg);
+  delay(500);
+  //Vector_Motion(0,0,omg);
 }

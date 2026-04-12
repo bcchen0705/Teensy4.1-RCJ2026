@@ -68,7 +68,7 @@ void line_calibrate(){
   while(1){
 
     if(Serial8.available()){
-      if(Serial8.read() == 0xEE){
+      if(Serial8.read() == 0xAD){
         for(uint8_t i = 0; i < LS_count; i++){
           Serial.print(" min ");Serial.print(i);Serial.print(" = ");Serial.print(min_ls[i]);
           Serial.print(" max ");Serial.print(i);Serial.print(" = ");Serial.print(max_ls[i]);
@@ -274,7 +274,7 @@ void loop(){
   }*/
   finalVx = vx;
   finalVy = vy;
-  Vector_Motion(finalVx, finalVy, 0);
+  Vector_Motion(finalVx, finalVy);
   Serial.print("vx= ");Serial.println(finalVx);
   Serial.print("vy= ");Serial.println(finalVy);
 }

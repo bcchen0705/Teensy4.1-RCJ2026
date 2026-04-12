@@ -65,8 +65,8 @@ unsigned long _lastUpdate = 0;
 //US Sensor
 #define front_us A15
 #define left_us A14
-#define back_us A17
-#define right_us A16
+#define back_us A16
+#define right_us A17
 #define alpha 0.75
 float pos_x_f = 0.0;
 float pos_y_f = 0.0;
@@ -93,9 +93,9 @@ struct GyroData{float heading = 0.0; float pitch = 0.0; bool valid = false;} gyr
 //struct LineData{uint32_t state = 0x3FFFF; bool valid = false;} lineData;
 struct BallData{uint16_t dist = 255; uint16_t angle = 255; uint16_t possession = 255; bool valid = false; float Vx; float Vy;} ballData;
 struct USSensor{uint16_t dist_b = 0; uint16_t dist_l = 0; uint16_t dist_r = 0;uint16_t dist_f = 0; } usData;
-struct CamData{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} targetData;
-struct LeftEye{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} leftData;
-struct RightEye{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} rightData;
+//struct CamData{uint16_t x = 65535;uint16_t y = 65535;uint16_t w = 65535;uint16_t h = 65535; bool valid = false;} targetData;
+struct CamData{uint16_t ball_x = 65535;uint16_t ball_y = 65535;uint16_t ball_w = 65535;uint16_t ball_h = 65535; bool ball_valid = false;uint16_t goal_x = 65535;uint16_t goal_y = 65535;uint16_t goal_w = 65535;uint16_t goal_h = 65535; bool  goal_valid = false;} camData;
+struct RightEye{uint16_t ball_x = 65535;uint16_t ball_y = 65535;uint16_t ball_w = 65535;uint16_t ball_h = 65535; bool ball_valid = false;uint16_t goal_x = 65535;uint16_t  goal_y = 65535;uint16_t  goal_w = 65535;uint16_t  goal_h = 65535; bool goal_valid = false;} rightData;
 
 float ballDegreelist[16]={22.5,45,67.5,87.5,92.5,112.5,135,157.5,202.5,225,247.5,265,275,292.5,315,337.5};
 float linesensorDegreelist[32] = {
@@ -110,7 +110,7 @@ float linesensorDegreelist[32] = {
 struct RobotControl{
     float robot_heading = 90.0;        // Target heading
     float P_factor = 0.55;             // Proportional gain
-    float heading_threshold = 10.0;     // Deadband (degrees)
+    float heading_threshold = 10.0;    // Deadband (degrees)
     int8_t vx = 0;
     int8_t vy = 0;
     bool picked_up = false;
@@ -121,7 +121,7 @@ struct RobotControl{
 // Including prototypes for the new functions and existing ones
 void Robot_Init();
 void readBNO085Yaw();
-void LeftEye();
+void readCamera();
 void RightEye();
 void ballsensor();
 void linesensor();
@@ -135,7 +135,8 @@ void showSensors(float gyro, int ballAngle);
 void SetMotorSpeed(uint8_t port, int8_t speed);
 void MotorStop();
 void RobotIKControl(int8_t vx, int8_t vy, float omega);
-void Vector_Motion(float Vx, float Vy);
+//void Vector_Motion(float Vx, float Vy);
+void Vector_Motion(float Vx, float Vy, float rot_V);
 void FC_Vector_Motion(int WVx, int WVy, float target_heading);
 void Degree_Motion(float moving_degree, int8_t speed);
 void kicker_control(bool);
@@ -258,56 +259,103 @@ void readBNO085Yaw(){
   }
 }
 
-void LeftEye(){
-  static uint8_t buffer[10];
-  uint8_t index = 0;
-  leftData.valid = false;
-  while (Serial5.available()){
-    uint8_t b = Serial5.read();
-    if(index == 0 && b != 0xCC){
-      continue;  // 等待開頭 0xCC
-    }
-    buffer[index++] = b;
-    if(index == 10){  // 收滿 10 bytes
-      if(buffer[0] == 0xCC && buffer[9] == 0xEE){
-        leftData.x = buffer[1] | (buffer[2] << 8);
-        leftData.y = buffer[3] | (buffer[4] << 8);
-        leftData.w = buffer[5] | (buffer[6] << 8);
-        leftData.h = buffer[7] | (buffer[8] << 8);
-        leftData.valid = true;  
-        if(leftData.x == 65535 || leftData.y == 65535 || leftData.w == 65535 || leftData.h == 65535){
-          leftData.valid = false;  
-        }            
-      }
-      index = 0;  // reset buffer
-    }
-  }
-}
-void RightEye(){
-  static uint8_t buffer[10];
-  uint8_t index = 0;
-  rightData.valid = false;
+
+void readcamera(){
+  static uint8_t buffer[20]; // 稍微開大一點點
+  static uint8_t index = 0;
   while (Serial3.available()){
     uint8_t b = Serial3.read();
+    
     if(index == 0 && b != 0xCC){
       continue;  // 等待開頭 0xCC
     }
     buffer[index++] = b;
-    if(index == 10){  // 收滿 10 bytes
-      if(buffer[0] == 0xCC && buffer[9] == 0xEE){
-        rightData.x = buffer[1] | (buffer[2] << 8);
-        rightData.y = buffer[3] | (buffer[4] << 8);
-        rightData.w = buffer[5] | (buffer[6] << 8);
-        rightData.h = buffer[7] | (buffer[8] << 8);
-        rightData.valid = true;  
-        if(rightData.x == 65535 || rightData.y == 65535 || rightData.w == 65535 || rightData.h == 65535){
-          rightData.valid = false;  
-        }            
+    if (index == 18) {
+      // 3. 檢查頭尾是否正確
+      if (buffer[0] == 0xCC && buffer[17] == 0xEE) {
+        
+        // --- 解析球 (Ball) ---
+        // 把兩個 byte 拼回 16-bit 整數
+        int b_x = buffer[1] | (buffer[2] << 8);
+        int b_y = buffer[3] | (buffer[4] << 8);
+        int b_w = buffer[5] | (buffer[6] << 8);
+        int b_h = buffer[7] | (buffer[8] << 8);
+
+        // --- 解析球門 (Goal) ---
+        int g_x = buffer[9] | (buffer[10] << 8);
+        int g_y = buffer[11] | (buffer[12] << 8);
+        int g_w = buffer[13] | (buffer[14] << 8);
+        int g_h = buffer[15] | (buffer[16] << 8);
+
+        // 4. 將解析後的資料存入你的 rightData 結構
+        // 判斷是否有效：如果在 K210 端沒看到球會傳 65535 (0xFFFF)
+        camData.ball_x = b_x;
+        camData.ball_y = b_y;
+        camData.ball_w = b_w;
+        camData.ball_h = b_h;
+        camData.ball_valid = (b_x != 65535);
+
+        camData.goal_x = g_x;
+        camData.goal_y = g_y;
+        camData.goal_w = g_w;
+        camData.goal_h = g_h;
+        camData.goal_valid = (g_x != 65535);
       }
       index = 0;  // reset buffer
     }
   }
 }
+void RightEye() {
+  static uint8_t buffer[20]; // 稍微開大一點點
+  static uint8_t index = 0;
+  
+  while (Serial5.available()) {
+    uint8_t b = Serial5.read();
+    
+    // 1. 找標頭：如果 index 是 0 但收到的不是 0xCC，就跳過
+    if (index == 0 && b != 0xCC) continue;
+
+    buffer[index++] = b;
+
+    // 2. 收滿 18 bytes (由你的 K210 packet 長度決定)
+    if (index == 18) {
+      // 3. 檢查頭尾是否正確
+      if (buffer[0] == 0xCC && buffer[17] == 0xEE) {
+        
+        // --- 解析球 (Ball) ---
+        // 把兩個 byte 拼回 16-bit 整數
+        int b_x = buffer[1] | (buffer[2] << 8);
+        int b_y = buffer[3] | (buffer[4] << 8);
+        int b_w = buffer[5] | (buffer[6] << 8);
+        int b_h = buffer[7] | (buffer[8] << 8);
+
+        // --- 解析球門 (Goal) ---
+        int g_x = buffer[9] | (buffer[10] << 8);
+        int g_y = buffer[11] | (buffer[12] << 8);
+        int g_w = buffer[13] | (buffer[14] << 8);
+        int g_h = buffer[15] | (buffer[16] << 8);
+
+        // 4. 將解析後的資料存入你的 rightData 結構
+        // 判斷是否有效：如果在 K210 端沒看到球會傳 65535 (0xFFFF)
+        rightData.ball_x = b_x;
+        rightData.ball_y = b_y;
+        rightData.ball_w = b_w;
+        rightData.ball_h = b_h;
+        rightData.ball_valid = (b_x != 65535);
+
+        rightData.goal_x = g_x;
+        rightData.goal_y = g_y;
+        rightData.goal_w = g_w;
+        rightData.goal_h = g_h;
+        rightData.goal_valid = (g_x != 65535);
+      }
+      
+      // 無論校驗是否成功，都要重置 index 等待下一個封包
+      index = 0;
+    }
+  }
+}
+/*
 void ballsensor(){
   // 發送請求封包，通知感測器回傳資料
   uint8_t b[4];
@@ -332,8 +380,8 @@ void ballsensor(){
     ballData.valid = false;
   }
 }
-
-/*void readBallCam(){
+*/
+void readBallCam(){
     
     static uint16_t buffer[6] = {0};
     static uint16_t idx = 0;
@@ -359,7 +407,7 @@ void ballsensor(){
             idx = 0;  // reset buffer
         }  
     }
-}*/
+}
 /*
 void linesensor(){
   uint8_t buffer[7];
@@ -493,18 +541,40 @@ void MotorStop(){
 
 void RobotIKControl(int8_t vx, int8_t vy, float omega){
   // Note: Cast omega to int8_t for consistent data types in the IK control matrix
-  int8_t p1 = -0.643f * vx + 0.766f * vy + (int8_t)omega;
-  int8_t p2 = -0.643f * vx - 0.766f * vy + (int8_t)omega;
-  int8_t p3 = 0.707f * vx - 0.707f * vy + (int8_t)omega;
-  int8_t p4 = 0.707f * vx + 0.707f * vy + (int8_t)omega;
-
+  int8_t p1 = -vx +  vy + (int8_t)omega;
+  int8_t p2 =  -vx -  vy + (int8_t)omega;
+  int8_t p3 =  vx -  vy + (int8_t)omega;
+  int8_t p4 =  vx + vy + (int8_t)omega;
+  Serial.print("p1= ");Serial.println(p1);
+  Serial.print("p2= ");Serial.println(p2);
+  Serial.print("p3= ");Serial.println(p3);
+  Serial.print("p4= ");Serial.println(p4);
   SetMotorSpeed(1, p1);
   SetMotorSpeed(2, p2);
   SetMotorSpeed(3, p3);
   SetMotorSpeed(4, p4);
 }
-/*
-void Vector_Motion(float Vx, float Vy){  
+
+void Vector_Motion(float Vx, float Vy, float rot_V) {  
+    control.robot_heading += rot_V; // Update target heading based on input
+    if(control.robot_heading > 135){
+      control.robot_heading =  135;  
+    }
+    else if(control.robot_heading < 45){
+      control.robot_heading = 45;  
+    }
+    Serial.printf("control.robot_heading%f\n",control.robot_heading);
+    
+    float e = control.robot_heading - (90.0f - gyroData.heading);
+
+    // Normalize error (-180 to 180)
+    while (e > 180) e -= 360;
+    while (e < -180) e += 360;
+
+    float omega = (fabs(e) > control.heading_threshold) ? (e * control.P_factor) : 0;
+    RobotIKControl(Vx, Vy, omega);
+}
+/*void Vector_Motion(float Vx, float Vy){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
   float sensor_heading = 90.0 - current_gyro_heading;
@@ -514,7 +584,7 @@ void Vector_Motion(float Vx, float Vy){
   }
   RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
 }*/
-void Vector_Motion(float Vx, float Vy, float target_offset){  
+/*void Vector_Motion(float Vx, float Vy, float target_offset){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
   float sensor_heading = 90.0 - current_gyro_heading;
@@ -529,7 +599,7 @@ void Vector_Motion(float Vx, float Vy, float target_offset){
   RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
 
 }
-
+*/
 void FC_Vector_Motion(int WVx, int WVy, float target_heading) {
     // 1. Convert gyro to Radians (math functions use radians)
     float rad = (target_heading-90)* (M_PI / 180.0);
@@ -563,7 +633,7 @@ void Degree_Motion(float moving_degree, int8_t speed){
   float moving_degree_rad = moving_degree * DtoR_const;
   float Vx = cos(moving_degree_rad) * speed;
   float Vy = sin(moving_degree_rad) * speed;
-  Vector_Motion(Vx, Vy);
+  Vector_Motion(Vx, Vy, 0);
 }
 
 

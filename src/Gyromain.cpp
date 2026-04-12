@@ -2,43 +2,55 @@
 #include <Arduino.h>
 #include <Robot.h>
 
-
+int final_omega;
+int out_omega;
 void setup(){
   Robot_Init();
 
 }
 void loop(){
-  ballsensor();
-  uint8_t packet[6];
-  int16_t Deg;
-  if(ballData.valid){
-    float ballDegree = ballDegreelist[ballData.angle];
-    float ball_error = ballDegree - 90;
-
-    if (ball_error > 180) ball_error -= 360;
-    if (ball_error < -180) ball_error += 360;
-
-    Deg = (int16_t)(ball_error);
-    
-     }
-  else{
-    Deg = 0;
+  readcamera();
+  
+  if(camData.goal_valid){
+    Serial.print("X= ");Serial.println(camData.goal_x);
+    Serial.print("Y= ");Serial.println(camData.goal_y);
+    Serial.print("W= ");Serial.println(camData.goal_w);
+    Serial.print("H= ");Serial.println(camData.goal_h);
+    Serial.println("------");
   }
-   // Header
-    packet[0] = 0xAA;
-    packet[1] = 0xAA;
-    // vx
-    packet[2] = Deg & 0xFF;
-    packet[3] = (Deg >> 8) & 0xFF;
-    uint8_t sum = 0;
-    for(int i = 0; i <= 3; i++){
-      sum += packet[i];
-    }
-    packet[4] = sum;
-    // end
-    packet[5] = 0xEE;
+  int final_omega = 0;
 
-    Serial8.write(packet, 6);
+  // 2. 判斷邏輯（建議將左右眼邏輯整合，避免互相覆蓋）
+  // 假設兩邊都看到，則需要一個綜合判斷
+  int finaltarget_x = camData.goal_x - 160; 
+  if (finaltarget_x <= 20 && finaltarget_x >= -20) {
+    final_omega = 0; 
+  } 
+  else if (finaltarget_x > 20) {
+    final_omega = 1;  // 往右修
+  }
+  else if(finaltarget_x < -20){
+    final_omega = -1;   //往左
+  }
+  Serial.println(final_omega);
+  // 3. 封包準備
+  uint8_t packet[6];
+  int16_t out_omega = (int16_t)final_omega;
 
+  packet[0] = 0xAA;
+  packet[1] = 0xAA;
+  
+  // 這裡修正了：把 omega 放入封包，並確保變數名稱正確
+  packet[2] = out_omega & 0xFF;
+  packet[3] = (out_omega >> 8) & 0xFF;
 
+  // 4. Checksum 計算
+  uint8_t sum = 0;
+  for(int i = 0; i <= 3; i++){
+    sum += packet[i];
+  }
+  packet[4] = sum;
+  packet[5] = 0xEE;
+
+  Serial8.write(packet, 6);
 }
