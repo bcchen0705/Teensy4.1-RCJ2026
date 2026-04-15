@@ -196,7 +196,7 @@ void loop(){
     float offset = 0;
 
   
-    float ballspeed = constrain(map(ballData.dist, 35, 100, 20, 40),20, 40);
+    float ballspeed = constrain(map(ballData.dist, 25, 60, 20, 40),20, 40);
    
     
     if(ballData.dist >= 65){
@@ -204,10 +204,12 @@ void loop(){
       offset = 0;
     }
     else{
-      float angleError = ballData.angle - 90;
+      float angleError = fabs(ballData.angle - 90);
       float angleFactor = 1.0 - constrain(abs(angleError) / 90.0, 0.0, 1.0);
-      float ballspeed = ballspeed * (0.8 + 0.2 * angleFactor);
+      //float offsetFactor = constrain(angleError / 90.0, 0.0, 1.0); 
+      ballspeed = ballspeed * (0.9 + 0.1 * angleFactor);
       float side;
+
       if(ballData.angle >= 80 && ballData.angle <= 100){
         ballspeed = 40;
         side = 0;
@@ -218,10 +220,8 @@ void loop(){
         side = 1;
         float offsetRatio = exp(-1.2 * (ballData.dist - 50));
         offsetRatio = constrain(offsetRatio, 0.0, 1.0);
-        offset = 70 + 30 * offsetRatio;
-        if (ballData.dist <= 45){
-          offset = 100;
-        }
+        offset = 30 + 70 * offsetRatio;
+        //offset = 100 * offsetRatio * offsetFactor;
         moving_degree = ballData.angle + (offset * side);
       }
 
@@ -229,10 +229,8 @@ void loop(){
         side = -1;
         float offsetRatio = exp(-0.8 * (ballData.dist - 50));
         offsetRatio = constrain(offsetRatio, 0.0, 1.0);
-        offset = 70 + 30 * offsetRatio;
-        if (ballData.dist <= 45){
-          offset = 90;
-        }
+        offset = 30 + 70 * offsetRatio;
+        //offset = 100 * offsetRatio * offsetFactor;
         moving_degree = ballData.angle + (offset * side);
       }
     
@@ -244,29 +242,50 @@ void loop(){
     ballData.Vx = (int)round(ballspeed * cos(moving_degree * DtoR_const));
     ballData.Vy = (int)round(ballspeed * sin(moving_degree * DtoR_const));
     
-    if(ballData.dist <= 38 && ballData.angle <= 95 && ballData.angle >= 85){
-      ballData.Vx *= 0.1;
+    if(ballData.dist <= 41 && ballData.angle <= 100 && ballData.angle >= 80){
+      ballData.Vx = 0;
       ballData.Vy = 40;
       moving_degree = 90;
       offset = 0;
     }
+    //右邊線
     if(usData.dist_r <= 26 ){if(ballData.Vx > 0)ballData.Vx = 0;}
     else if(usData.dist_r <= 30){if(ballData.Vx > 0)ballData.Vx *= 0.5; }
     else if(usData.dist_r <= 33){if(ballData.Vx > 0)ballData.Vx *= 0.7;}
     else{ballData.Vx = ballData.Vx;}
-
+    //左邊線
     if(usData.dist_l <= 18 ){if(ballData.Vx < 0)ballData.Vx = 0;}
-    else if(usData.dist_l <= 22){
-    
-      if(ballData.Vx < 0){ballData.Vx *= 0.5;}}
+    else if(usData.dist_l <= 22){if(ballData.Vx < 0){ballData.Vx *= 0.5;}}
     else if(usData.dist_l <= 25){if(ballData.Vx < 0)ballData.Vx *= 0.7;}
     else{ballData.Vx = ballData.Vx;}
+    //-------------------------------------------------------------------
     
+    //前角落
     if(usData.dist_l <= 35){
-      if(usData.dist_f <= 23){if(ballData.Vy < 0)ballData.Vy = 0;}
-      else if(usData.dist_f <= 25){if(ballData.Vy < 0)ballData.Vy = 0.6;}
-      else if(usData.dist_f <= 27){if(ballData.Vy < 0)ballData.Vy *= 0.8;}
+      if(usData.dist_f <= 23){if(ballData.Vy > 0)ballData.Vy = 0;}
+      else if(usData.dist_f <= 25){if(ballData.Vy > 0)ballData.Vy *= 0.6;}
+      else if(usData.dist_f <= 27){if(ballData.Vy > 0)ballData.Vy *= 0.8;}
     }
+    if(usData.dist_r <= 35){
+      if(usData.dist_f <= 23){if(ballData.Vy > 0)ballData.Vy = 0;}
+      else if(usData.dist_f <= 25){if(ballData.Vy > 0)ballData.Vy *= 0.6;}
+      else if(usData.dist_f <= 27){if(ballData.Vy > 0)ballData.Vy *= 0.8;}
+    }
+    //後角落
+    if(usData.dist_l <= 35){
+      if(usData.dist_b <= 23){if(ballData.Vy < 0)ballData.Vy = 0;}
+      else if(usData.dist_b <= 25){if(ballData.Vy < 0)ballData.Vy *= 0.6;}
+      else if(usData.dist_b <= 27){if(ballData.Vy < 0)ballData.Vy *= 0.8;}
+    }
+    if(usData.dist_r <= 35){
+      if(usData.dist_b<= 23){if(ballData.Vy < 0)ballData.Vy = 0;}
+      else if(usData.dist_b <= 25){if(ballData.Vy < 0)ballData.Vy *= 0.6;}
+      else if(usData.dist_b <= 27){if(ballData.Vy < 0)ballData.Vy *= 0.8;}
+    }
+    if(usData.dist_b<= 23){if(ballData.Vy < 0)ballData.Vy = 0;}
+    if(usData.dist_f<= 23){if(ballData.Vy > 0)ballData.Vy = 0;}
+    //-------------------------------------------------------------------
+
     Serial.print("angle= ");Serial.println(ballData.angle);
     Serial.print("dist= ");Serial.println(ballData.dist);
     Serial.print("moving= ");Serial.println(moving_degree);

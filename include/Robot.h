@@ -541,10 +541,10 @@ void MotorStop(){
 
 void RobotIKControl(int8_t vx, int8_t vy, float omega){
   // Note: Cast omega to int8_t for consistent data types in the IK control matrix
-  int8_t p1 = -vx +  vy + (int8_t)omega;
-  int8_t p2 =  -vx -  vy + (int8_t)omega;
-  int8_t p3 =  vx -  vy + (int8_t)omega;
-  int8_t p4 =  vx + vy + (int8_t)omega;
+  int8_t p1 = -0.643 * vx +  0.766 * vy + (int8_t)omega;
+  int8_t p2 =  -0.643 * vx -  0.766 * vy + (int8_t)omega;
+  int8_t p3 =  0.707 * vx -  0.707 * vy + (int8_t)omega;
+  int8_t p4 =  0.707 * vx + 0.707 * vy + (int8_t)omega;
   //Serial.print("p1= ");Serial.println(p1);
   //Serial.print("p2= ");Serial.println(p2);
   //Serial.print("p3= ");Serial.println(p3);
@@ -555,7 +555,7 @@ void RobotIKControl(int8_t vx, int8_t vy, float omega){
   SetMotorSpeed(4, p4);
 }
 
-void Vector_Motion(float Vx, float Vy, float rot_V) {  
+/*void Vector_Motion(float Vx, float Vy, float rot_V) {  
     control.robot_heading += rot_V; // Update target heading based on input
     if(control.robot_heading > 135){
       control.robot_heading =  135;  
@@ -574,8 +574,8 @@ void Vector_Motion(float Vx, float Vy, float rot_V) {
     float omega = (fabs(e) > control.heading_threshold) ? (e * control.P_factor) : 0;
     omega *= 0.5;
     RobotIKControl(Vx, Vy, omega);
-}
-/*void Vector_Motion(float Vx, float Vy){  
+}*/
+void Vector_Motion(float Vx, float Vy){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
   float sensor_heading = 90.0 - current_gyro_heading;
@@ -584,7 +584,7 @@ void Vector_Motion(float Vx, float Vy, float rot_V) {
       omega = e * control.P_factor;
   }
   RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
-}*/
+}
 /*void Vector_Motion(float Vx, float Vy, float target_offset){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
