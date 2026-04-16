@@ -17,7 +17,7 @@
 
 struct LineData{uint32_t state = 0xFFFFFFFF;} lineData;
 
-void readMainCore();
+bool readMainCore();
 int readMux(int ch, int sigPin);
 void line_calibrate();
 void linesensor_update();
@@ -43,6 +43,7 @@ bool first_detect = false;
 float lastLineAngle = -1;       // 紀錄最後一次撞線的角度
 uint32_t offLineTimer = 0;      // 離開線後的時間計時
 const uint32_t MEMORY_TIME = 800;
+uint32_t lastPacketTime = 0;
 
 float finalVx;
 float finalVy;
@@ -54,7 +55,6 @@ int readMux(int ch, int sigPin) {
   digitalWrite(s1, (ch >> 1) & 1);
   digitalWrite(s2, (ch >> 2) & 1);
   digitalWrite(s3, (ch >> 3) & 1);
-  delayMicroseconds(10);
   if(sigPin == 1)return analogRead(M1);
   if(sigPin == 2)return analogRead(M2);
 }
@@ -66,19 +66,26 @@ void line_calibrate(){
     min_ls[i] = 4095;
   }
   while(1){
-
     if(Serial8.available()){
-      if(Serial8.read() == 0xAD){
-        for(uint8_t i = 0; i < LS_count; i++){
-          Serial.print(" min ");Serial.print(i);Serial.print(" = ");Serial.print(min_ls[i]);
-          Serial.print(" max ");Serial.print(i);Serial.print(" = ");Serial.print(max_ls[i]);
-          Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
-          Serial.println("");
-        }
-        break;
-      } 
+    uint8_t header = Serial8.peek();
+      if (header == 0xFF) {
+        if (Serial8.available() >= 3) {
+          Serial8.read(); // 讀掉第一個 0xFF
+          Serial8.read(); // 讀掉第二個 0xFF
+          uint8_t cmd = Serial8.read();
+          
+          if(cmd == 0x02){
+            for(uint8_t i = 0; i < LS_count; i++){
+              Serial.print(" min ");Serial.print(i);Serial.print(" = ");Serial.print(min_ls[i]);
+              Serial.print(" max ");Serial.print(i);Serial.print(" = ");Serial.print(max_ls[i]);
+              Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
+              Serial.println("");
+            }
+            break;
+          }
+        } 
+      }
     }
-
     for(uint8_t i = 0; i < LS_count; i++){
     uint16_t reading = readMux(i % 16, (i < 16) ? 1 : 2);
 
@@ -91,7 +98,9 @@ void line_calibrate(){
       avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
   }
   EEPROM.put(0, avg_ls);
-  Serial8.write(0xDD);
+  Serial8.write(0xFF);
+  Serial8.write(0xFF);
+  Serial8.write(0x03);
 }
 
 //更新
@@ -108,8 +117,8 @@ void linesensor_update(){
       //Serial.println();
     }
   }
-
-  /*for (int i = LS_count - 1; i >= 0; i--) {
+  /*
+  for (int i = LS_count - 1; i >= 0; i--) {
     uint8_t bit = (lineData.state >> i) & 1;
     Serial.print(bit);
 
@@ -118,8 +127,8 @@ void linesensor_update(){
     }
   }
   Serial.println(" ");
-  delay(50);*/
-
+  delay(50);
+  */
 }
 bool moveBackInBounds(){
   //-----LINE SENSOR-----
@@ -142,7 +151,7 @@ bool moveBackInBounds(){
 
   // B : 反彈
 
-  if(linedetected && count >= 2){
+  if(linedetected && count >= 1){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
     
@@ -172,7 +181,7 @@ bool moveBackInBounds(){
       overhalf = false;
       finalDegree = fmod(lineDegree + 180.0f, 360.0f);
     }
-    Serial.print("finalDegree =");Serial.println(finalDegree);
+    //Serial.print("finalDegree =");Serial.println(finalDegree);
         
     lineVx = 40.0f *cos(finalDegree * DtoR_const);
     lineVy = 40.0f *sin(finalDegree * DtoR_const);
@@ -192,52 +201,50 @@ bool moveBackInBounds(){
   }
 }
 
-void readMainCore() {
+bool readMainCore() {
+  while (Serial8.available() > 0) {
+    uint8_t header = Serial8.peek();
 
-  while (Serial8.available()) {
+    // --- 情況 A：如果是校準指令 (0xFF 開頭) ---
+    if (header == 0xFF) {
+      if (Serial8.available() >= 3) {
+        Serial8.read(); // 讀掉第一個 0xFF
+        Serial8.read(); // 讀掉第二個 0xFF
+        uint8_t cmd = Serial8.read();
+        if (cmd == 0x01) line_calibrate();
+        // 這裡不用 return true，讓它繼續檢查有沒有球的資料
+      } else {
+        return false; // 資料還沒傳完，等下次
+      }
+    } 
+    
+    // --- 情況 B：如果是追球數據 (0xAA 開頭) ---
+    else if (header == 0xAA) {
+      if (Serial8.available() < 8) return false;
 
-    uint8_t c = Serial8.peek();
+      Serial8.read(); // 讀掉第一個 0xAA
+      if (Serial8.read() != 0xAA) continue; // 第二個不是 0xAA 就丟掉
 
-    // ===== COMMAND =====
-    if (c == 0xCC) {
-      Serial8.read();
-      line_calibrate();
-      continue;
+      uint8_t buffer[6];
+      for (int i = 0; i < 6; i++) buffer[i] = Serial8.read();
+
+      if (buffer[5] != 0xEE) continue; // 結尾檢查
+
+      uint8_t sum = buffer[0] + buffer[1] + buffer[2] + buffer[3];
+      if (sum != buffer[4]) continue; // Checksum 檢查
+
+      vx = (int16_t)((buffer[1] << 8) | buffer[0]);
+      vy = (int16_t)((buffer[3] << 8) | buffer[2]);
+      lastPacketTime = millis();
+      return true;
+    } 
+    
+    // --- 情況 C：雜訊或其他垃圾資料 ---
+    else {
+      Serial8.read(); // 把它讀掉清空，防止卡死
     }
-
-    // ===== DATA FRAME =====
-    if (Serial8.available() < 8) return;
-
-    if (Serial8.read() != 0xAA) continue;
-    if (Serial8.read() != 0xAA) continue;
-
-    uint8_t buffer[8];
-    buffer[0] = 0xAA;
-    buffer[1] = 0xAA;
-
-    for (int i = 2; i < 8; i++) {
-      buffer[i] = Serial8.read();
-    }
-
-    // check end
-    if (buffer[7] != 0xEE) continue;
-
-    // checksum
-    uint8_t sum = 0;
-    for (int i = 2; i <= 5; i++) {
-      sum += buffer[i];
-    }
-    if (sum != buffer[6]) continue;
-
-    // decode
-    int16_t vx_i = (buffer[3] << 8) | buffer[2];
-    int16_t vy_i = (buffer[5] << 8) | buffer[4];
-
-    vx = vx_i;
-    vy = vy_i;
-
-    return; // 一次只處理一包
   }
+  return false;
 }
 
 void setup(){
@@ -263,18 +270,29 @@ void loop(){
   readMainCore();
   linesensor_update();
   bool onLine = moveBackInBounds();
+
+  if (fabs(gyroData.pitch) > 15) {
+    finalVx= 0;finalVy = 0;
+    control.robot_heading = 90; 
+    Vector_Motion(0, 0); 
+    Serial.println("ROBOT PICKED UP - ALL STATES RESET");
+    return; 
+  }
   
-  /*if(onLine){
+  
+  
+  if(onLine){
     finalVx = lineVx;
     finalVy = lineVy;
   }
   else{
       finalVx = vx;
       finalVy = vy;
-  }*/
-  finalVx = vx;
-  finalVy = vy;
+  }
+  //finalVx = vx;
+  //finalVy = vy;
   Vector_Motion(finalVx,finalVy);
-  Serial.print("vx= ");Serial.println(finalVx);
-  Serial.print("vy= ");Serial.println(finalVy);
+  //Serial.print("vx= ");Serial.println(vx);
+  //Serial.print("vy= ");Serial.println(vy);
+
 }

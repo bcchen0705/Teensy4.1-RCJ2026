@@ -18,7 +18,7 @@ const unsigned long interval = 50;  // 20Hz = 每50毫秒一次
 
 void setup(){
   Robot_Init();
-  //drawMessage("START");
+  drawMessage("START");
 }
 
 void loop(){
@@ -27,30 +27,36 @@ void loop(){
   readBallCam();
   static uint32_t lastDisplayTime = 0;
 
-  Serial.println(usData.dist_l);
+  //Serial.println(usData.dist_l);
   if (digitalRead(BTN_ENTER) == LOW) {
-    Serial8.write(0xCC); // 傳送校準指令
+    Serial8.write(0xFF); Serial8.write(0xFF); Serial8.write(0x01);
     drawMessage("SCANNING...");
     delay(200); 
   }
   if (digitalRead(BTN_ESC) == LOW) {
-    Serial8.write(0xAD); // 傳送結束指令
+    Serial8.write(0xFF); Serial8.write(0xFF); Serial8.write(0x02);
     delay(200); 
   }
-  if(Serial8.available()){
-    
-      uint8_t c = Serial8.read();
-      if(c == 0xDD){
-      drawMessage("SAVED!");
-      delay(1000); // 讓 SAVED 停一下
-        
-        // 回到初始狀態
-      drawMessage("READY");
-      delay(200);
-      display.clearDisplay();
+
+  // 2. 持續監聽底層回傳的 0xFF 指令 (如 SAVED 訊號)
+  while (Serial8.available() >= 3) {
+    if (Serial8.peek() == 0xFF) {
+      Serial8.read(); // 第一個 0xFF
+      if (Serial8.peek() == 0xFF) {
+        Serial8.read(); // 第二個 0xFF
+        uint8_t cmd = Serial8.read();
+        if (cmd == 0x03) {
+          drawMessage("SAVED!");
+          delay(1000);
+          drawMessage("READY");
+          display.clearDisplay();
+        }
       }
-  
-  }
+    } else {
+      // 如果不是 0xFF 開頭，可能是底層回傳的其他數據或雜訊，讀掉一個避免卡死
+      Serial8.read();
+    }
+  }  
   //static uint32_t lastDisplayTime = 0;
   /*
   static uint32_t lastDisplayTime = 0;
@@ -178,19 +184,20 @@ void loop(){
     if(ballData.valid){   //有球
     //Serial.print("Angle: "); Serial.println(ballData.angle);
     //Serial.print("Dist: "); Serial.println(ballData.dist);
-    if (millis() - lastDisplayTime > 100) { // 每 0.1 秒更新一次螢幕
+    /*if (millis() - lastDisplayTime > 100) { // 每 0.1 秒更新一次螢幕
       display.clearDisplay();
       display.setTextSize(1);
       display.setTextColor(SSD1306_WHITE);
       
       // 顯示指南針 (Heading) 輔助確認感測器是否正常
-      display.setCursor(0, 10);
+      display.setCursor(0, 20);
       //display.printf("pitch: %.1f", gyroData.pitch);
-      display.printf("angle: %.1f\n", ballData.angle);
+      display.printf("angle: %d\n", ballData.angle);
+
       display.printf("dist: %d\n",ballData.dist);
       display.display();
       lastDisplayTime = millis();
-    }
+    }*/
     //轉成弧度
     float moving_degree = ballData.angle;
     float offset = 0;
@@ -318,7 +325,7 @@ void loop(){
     
   }
   else { //無球
-    drawMessage("NO BALL");
+    //drawMessage("NO BALL");
     uint8_t packet[8] = {0xAA,0xAA,0,0,0,0,0,0xEE};
     Serial8.write(packet, 8);
     Serial.println("0 ");
