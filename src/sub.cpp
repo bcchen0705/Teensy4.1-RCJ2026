@@ -181,7 +181,7 @@ bool moveBackInBounds(){
       overhalf = false;
       finalDegree = fmod(lineDegree + 180.0f, 360.0f);
     }
-    //Serial.print("finalDegree =");Serial.println(finalDegree);
+    Serial.print("finalDegree =");Serial.println(finalDegree);
         
     lineVx = 40.0f *cos(finalDegree * DtoR_const);
     lineVy = 40.0f *sin(finalDegree * DtoR_const);
@@ -291,8 +291,8 @@ void loop(){
   }
   //finalVx = vx;
   //finalVy = vy;
-  Vector_Motion(finalVx,finalVy);
-  //Serial.print("vx= ");Serial.println(vx);
-  //Serial.print("vy= ");Serial.println(vy);
+  Vector_Motion(0,10);
+  Serial.print("vx= ");Serial.println(finalVx);
+  Serial.print("vy= ");Serial.println(finalVy);
 
 }

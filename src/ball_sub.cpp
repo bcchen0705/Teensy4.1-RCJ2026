@@ -57,9 +57,9 @@ void readMainCore() {
 void setup(){
   Robot_Init();
   Serial2.begin(115200);
-  // 初始化 max / min
   
 }
+
 
 void loop(){
   readBNO085Yaw();
@@ -83,6 +83,8 @@ void loop(){
   finalVx = vx;
   finalVy = vy;
   Vector_Motion(finalVx,finalVy);
-  Serial.print("vx= ");Serial.println(finalVx);
-  Serial.print("vy= ");Serial.println(finalVy);
+  
+  //Serial.print("vx= ");Serial.println(finalVx);
+  //Serial.print("vy= ");Serial.println(finalVy);
+  
 }

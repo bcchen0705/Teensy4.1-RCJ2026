@@ -41,7 +41,7 @@ unsigned long _lastUpdate = 0;
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
-
+/*
 // Motor 4 Pins
 #define pwmPin1 2    // PWM 控制腳
 #define DIRA_1 3   // 方向控制腳1
@@ -61,7 +61,25 @@ unsigned long _lastUpdate = 0;
 #define pwmPin4 23  // PWM 控制腳
 #define DIRA_4 36    // 方向控制腳1
 #define DIRB_4 37 
+*/
+#define pwmPin1 2    // PWM 控制腳
+#define DIRA_1 3   // 方向控制腳1
+#define DIRB_1 4
 
+// Motor 3 Pins
+#define pwmPin2 10    // PWM 控制腳
+#define DIRA_2 11   // 方向控制腳1
+#define DIRB_2 12
+
+// Motor 2 Pins
+#define pwmPin3 5    // PWM 控制腳
+#define DIRA_3 6   // 方向控制腳1
+#define DIRB_3 9
+
+// Motor 1 Pins
+#define pwmPin4 23  // PWM 控制腳
+#define DIRA_4 37    // 方向控制腳1
+#define DIRB_4 36 
 //US Sensor
 #define front_us A15
 #define left_us A14
@@ -109,7 +127,7 @@ float linesensorDegreelist[32] = {
 // --- ROBOT CONTROL STRUCT (New: For P-control state) ---
 struct RobotControl{
     float robot_heading = 90.0;        // Target heading
-    float P_factor = 0.55;             // Proportional gain
+    float P_factor = 0.7;             // Proportional gain
     float heading_threshold = 10.0;    // Deadband (degrees)
     int8_t vx = 0;
     int8_t vy = 0;
@@ -136,7 +154,7 @@ void SetMotorSpeed(uint8_t port, int8_t speed);
 void MotorStop();
 void RobotIKControl(int8_t vx, int8_t vy, float omega);
 //void Vector_Motion(float Vx, float Vy);
-void Vector_Motion(float Vx, float Vy, float rot_V);
+void Vector_Motion(float Vx, float Vy, float rot_V, bool reset);
 void FC_Vector_Motion(int WVx, int WVy, float target_heading);
 void Degree_Motion(float moving_degree, int8_t speed);
 void kicker_control(bool);
@@ -450,7 +468,7 @@ void readussensor(){
   dist_f_f = alpha * dist_f_f + (1.0f - alpha) * dist_f_raw;
   // assign filtered values to struct
   usData.dist_b = dist_b_f;
-  usData.dist_l = dist_l_f;
+  usData.dist_l = dist_l_f+9;
   usData.dist_r = dist_r_f;
   usData.dist_f = dist_f_f;
 }
@@ -538,13 +556,16 @@ void MotorStop(){
   analogWrite(pwmPin3, 0);
   analogWrite(pwmPin4, 0);
 }
-
-void RobotIKControl(int8_t vx, int8_t vy, float omega){
+/*
+void RobotIKControl(float vx, float vy, float omega){
   // Note: Cast omega to int8_t for consistent data types in the IK control matrix
-  int8_t p1 = -vx +vy + (int8_t)omega;
-  int8_t p2 =  -vx - vy + (int8_t)omega;
-  int8_t p3 =  vx -  vy + (int8_t)omega;
-  int8_t p4 =  vx + vy + (int8_t)omega;
+  float p1 = -0.643f * vx + 0.766f * vy + omega;
+    float p2 = -0.643f * vx - 0.766f * vy + omega;
+    float p3 =  0.707f * vx - 0.707f * vy + omega;
+    float p4 =  0.707f * vx + 0.707f * vy + omega;
+  p1 *= 0.7;
+  p4 *= 0.9;
+  //p4 *= 0.85;
   //Serial.print("p1= ");Serial.println(p1);
   //Serial.print("p2= ");Serial.println(p2);
   //Serial.print("p3= ");Serial.println(p3);
@@ -554,8 +575,52 @@ void RobotIKControl(int8_t vx, int8_t vy, float omega){
   SetMotorSpeed(3, p3);
   SetMotorSpeed(4, p4);
 }
+*/
+// ── 馬達校正參數（調完死區和偏移後填這裡）──────────────
+struct MotorCal {
+    float scale;
+    int8_t dead;
+};
 
-/*void Vector_Motion(float Vx, float Vy, float rot_V) {  
+constexpr MotorCal CAL[5] = {
+    {},
+    {0.68f, -2},  // M1
+    {0.95f,  2},  // M2
+    {1.00f,  1},  // M3
+    {1.00f, -1},  // M4
+};
+
+static int8_t applyMotorCal(float raw, const MotorCal& cal) {
+    if (raw == 0) return 0;
+    float scaled = raw * cal.scale;
+    float out = scaled + (scaled > 0 ? cal.dead : -cal.dead);
+    return (int8_t)constrain(out, -127, 127);
+}
+
+void RobotIKControl(float vx, float vy, float omega){
+    float p1 = -0.643f * vx + 0.766f * vy + omega;
+    float p2 = -0.643f * vx - 0.766f * vy + omega;
+    float p3 =  0.707f * vx - 0.707f * vy + omega;
+    float p4 =  0.707f * vx + 0.707f * vy + omega;
+
+    SetMotorSpeed(1, applyMotorCal(p1, CAL[1]));
+    SetMotorSpeed(2, applyMotorCal(p2, CAL[2]));
+    SetMotorSpeed(3, applyMotorCal(p3, CAL[3]));
+    SetMotorSpeed(4, applyMotorCal(p4, CAL[4]));
+}
+void Vector_Motion(float Vx, float Vy, float rot_V, bool reset) {
+  float omega = 0.0;
+
+  if(reset && rot_V == 0){
+    control.robot_heading =90;
+    float current_gyro_heading = gyroData.heading;
+    float sensor_heading = 90.0 - current_gyro_heading;
+    float e = control.robot_heading - sensor_heading;
+    if(fabs(e) > control.heading_threshold){
+    omega = e * control.P_factor;
+  }
+  }
+  else{
     control.robot_heading += rot_V; // Update target heading based on input
     if(control.robot_heading > 135){
       control.robot_heading =  135;  
@@ -570,21 +635,21 @@ void RobotIKControl(int8_t vx, int8_t vy, float omega){
     // Normalize error (-180 to 180)
     while (e > 180) e -= 360;
     while (e < -180) e += 360;
-
-    float omega = (fabs(e) > control.heading_threshold) ? (e * control.P_factor) : 0;
+    omega = (fabs(e) > control.heading_threshold) ? (e * control.P_factor) : 0;
     omega *= 0.5;
-    RobotIKControl(Vx, Vy, omega);
-}*/
-void Vector_Motion(float Vx, float Vy){  
+  }
+  RobotIKControl(Vx, Vy, omega);
+}
+/*void Vector_Motion(float Vx, float Vy){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
   float sensor_heading = 90.0 - current_gyro_heading;
   float e = control.robot_heading - sensor_heading;
   if(fabs(e) > control.heading_threshold){
-      omega = e * control.P_factor;
+    omega = e * control.P_factor;
   }
-  RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
-}
+  RobotIKControl(Vx, Vy, omega);
+}*/
 /*void Vector_Motion(float Vx, float Vy, float target_offset){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
@@ -634,7 +699,7 @@ void Degree_Motion(float moving_degree, int8_t speed){
   float moving_degree_rad = moving_degree * DtoR_const;
   float Vx = cos(moving_degree_rad) * speed;
   float Vy = sin(moving_degree_rad) * speed;
-  Vector_Motion(Vx, Vy, 0);
+  Vector_Motion(Vx, Vy, 0,false);
 }
 
 
