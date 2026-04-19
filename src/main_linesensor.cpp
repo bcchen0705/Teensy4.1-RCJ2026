@@ -5,7 +5,6 @@
 #include <Robot.h>
 #include <math.h>
 
-void drawMessage(const char* msg);
 
 void setup(){
   Robot_Init();
@@ -15,13 +14,7 @@ void setup(){
 }
 
 // 封裝一個刷螢幕的函式，確保不會亂閃
-void drawMessage(const char* msg) {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.println(msg);
-  display.display(); // 只有呼叫這函式時才會真正動到螢幕
-}
+
 
 
 void loop(){

@@ -51,7 +51,7 @@ void loop(){
   finalVx = vx;
   finalVy = vy;
   float omg = -omega/1500;
-
+    Serial.println(omg,3);
   if(goal_valid == 0x00){
       Vector_Motion(finalVx, finalVy, 0, 1);
   }

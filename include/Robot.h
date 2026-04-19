@@ -41,7 +41,7 @@ unsigned long _lastUpdate = 0;
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
-/*
+
 // Motor 4 Pins
 #define pwmPin1 2    // PWM 控制腳
 #define DIRA_1 3   // 方向控制腳1
@@ -61,7 +61,7 @@ unsigned long _lastUpdate = 0;
 #define pwmPin4 23  // PWM 控制腳
 #define DIRA_4 36    // 方向控制腳1
 #define DIRB_4 37 
-*/
+/*
 #define pwmPin1 2    // PWM 控制腳
 #define DIRA_1 3   // 方向控制腳1
 #define DIRB_1 4
@@ -80,11 +80,12 @@ unsigned long _lastUpdate = 0;
 #define pwmPin4 23  // PWM 控制腳
 #define DIRA_4 37    // 方向控制腳1
 #define DIRB_4 36 
+*/
 //US Sensor
 #define front_us A15
-#define left_us A14
-#define back_us A16
-#define right_us A17
+#define left_us A16
+#define back_us A17
+#define right_us A14
 #define alpha 0.75
 float pos_x_f = 0.0;
 float pos_y_f = 0.0;
@@ -128,7 +129,7 @@ float linesensorDegreelist[32] = {
 struct RobotControl{
     float robot_heading = 90.0;        // Target heading
     float P_factor = 0.7;             // Proportional gain
-    float heading_threshold = 10.0;    // Deadband (degrees)
+    float heading_threshold = 5.0;    // Deadband (degrees)
     int8_t vx = 0;
     int8_t vy = 0;
     bool picked_up = false;
@@ -169,6 +170,9 @@ void readBallCam();
 // ******************************************************
 
 void Robot_Init(){
+  //pinMode(13, OUTPUT);
+  //digitalWrite(13, HIGH);
+  
   Serial.begin(115200);
   
   Serial3.begin(115200);
@@ -206,10 +210,9 @@ void Robot_Init(){
   
   pinMode(Kicker_Pin, OUTPUT);
   pinMode(Charge_Pin, OUTPUT);
-
-  digitalWrite(Kicker_Pin, LOW);
+  digitalWrite(Kicker_Pin, HIGH);
   digitalWrite(Charge_Pin, LOW);
-
+  
   pinMode(back_ls, INPUT_PULLUP);
   pinMode(left_ls, INPUT_PULLUP);
   pinMode(right_ls, INPUT_PULLUP);
@@ -222,9 +225,8 @@ void Robot_Init(){
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) while(1);
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, HIGH);
-  kicker_control(0);
+  
+  //kicker_control(0);
 
 }
 
@@ -468,7 +470,7 @@ void readussensor(){
   dist_f_f = alpha * dist_f_f + (1.0f - alpha) * dist_f_raw;
   // assign filtered values to struct
   usData.dist_b = dist_b_f;
-  usData.dist_l = dist_l_f+9;
+  usData.dist_l = dist_l_f;
   usData.dist_r = dist_r_f;
   usData.dist_f = dist_f_f;
 }
@@ -488,6 +490,7 @@ void SetMotorSpeed(uint8_t port, int8_t speed){
   int pwmVal = abs(speed) * 255 / 100;
   switch (port){
     case 4:
+      //analogWriteFrequency(pwmPin1, 5000); // Set to 5 kHz
       analogWrite(pwmPin1, pwmVal);
       if(speed>0){
         digitalWrite(DIRA_1,HIGH);
@@ -501,6 +504,7 @@ void SetMotorSpeed(uint8_t port, int8_t speed){
       }
       break;
     case 3:
+      //analogWriteFrequency(pwmPin2, 5000); // Set to 5 kHz
       analogWrite(pwmPin2, pwmVal);
       if(speed>0){
         digitalWrite(DIRA_2,HIGH);
@@ -514,6 +518,7 @@ void SetMotorSpeed(uint8_t port, int8_t speed){
       }
       break;
     case 2:
+      //analogWriteFrequency(pwmPin3, 5000); // Set to 5 kHz
       analogWrite(pwmPin3, pwmVal);
       if(speed>0){
         digitalWrite(DIRA_3,HIGH);
@@ -527,6 +532,7 @@ void SetMotorSpeed(uint8_t port, int8_t speed){
       }
       break;
     case 1:
+      //analogWriteFrequency(pwmPin4, 5000); // Set to 5 kHz
       analogWrite(pwmPin4, pwmVal);
       if(speed>0){
         digitalWrite(DIRA_4,HIGH);
@@ -584,10 +590,10 @@ struct MotorCal {
 
 constexpr MotorCal CAL[5] = {
     {},
-    {0.68f, -2},  // M1
-    {0.95f,  2},  // M2
-    {1.00f,  1},  // M3
-    {1.00f, -1},  // M4
+    {1.00f, 0},  // M1
+    {1.00f,  0},  // M2
+    {1.00f,  0},  // M3
+    {1.00f, 0},  // M4
 };
 
 static int8_t applyMotorCal(float raw, const MotorCal& cal) {
@@ -597,38 +603,48 @@ static int8_t applyMotorCal(float raw, const MotorCal& cal) {
     return (int8_t)constrain(out, -127, 127);
 }
 
+static float current_p[5] = {0, 0, 0, 0, 0};  // 記錄每顆馬達當前速度
 void RobotIKControl(float vx, float vy, float omega){
-    float p1 = -0.643f * vx + 0.766f * vy + omega;
-    float p2 = -0.643f * vx - 0.766f * vy + omega;
-    float p3 =  0.707f * vx - 0.707f * vy + omega;
-    float p4 =  0.707f * vx + 0.707f * vy + omega;
+    float target[5];
+    
+    target[1] = applyMotorCal(-0.643f * vx + 0.766f * vy + omega, CAL[1]);
+    target[2] = applyMotorCal(-0.643f * vx - 0.766f * vy + omega, CAL[2]);
+    target[3] = applyMotorCal( 0.707f * vx - 0.707f * vy + omega, CAL[3]);
+    target[4] = applyMotorCal( 0.707f * vx + 0.707f * vy + omega, CAL[4]);
+    
+    float ramp = 5.0f;
 
-    SetMotorSpeed(1, applyMotorCal(p1, CAL[1]));
-    SetMotorSpeed(2, applyMotorCal(p2, CAL[2]));
-    SetMotorSpeed(3, applyMotorCal(p3, CAL[3]));
-    SetMotorSpeed(4, applyMotorCal(p4, CAL[4]));
+    for(int i = 1; i <= 4; i++){
+        float diff = target[i] - current_p[i];
+        if(fabs(diff) <= ramp)
+            current_p[i] = target[i];
+        else
+            current_p[i] += (diff > 0) ? ramp : -ramp;
+        SetMotorSpeed(i, (int8_t)current_p[i]);
+    }
 }
+
+
 void Vector_Motion(float Vx, float Vy, float rot_V, bool reset) {
   float omega = 0.0;
-
   if(reset && rot_V == 0){
-    control.robot_heading =90;
+    control.robot_heading = 90;
     float current_gyro_heading = gyroData.heading;
     float sensor_heading = 90.0 - current_gyro_heading;
     float e = control.robot_heading - sensor_heading;
     if(fabs(e) > control.heading_threshold){
-    omega = e * control.P_factor;
-  }
+     omega = e * control.P_factor;
+    }
   }
   else{
     control.robot_heading += rot_V; // Update target heading based on input
-    if(control.robot_heading > 135){
-      control.robot_heading =  135;  
+    if(control.robot_heading > 150){
+      control.robot_heading =  150;  
     }
-    else if(control.robot_heading < 45){
-      control.robot_heading = 45;  
+    else if(control.robot_heading < 30){
+      control.robot_heading = 30;  
     }
-    Serial.printf("control.robot_heading%f\n",control.robot_heading);
+    //.printf("control.robot_heading%f\n",control.robot_heading);
     
     float e = control.robot_heading - (90.0f - gyroData.heading);
 
@@ -638,9 +654,11 @@ void Vector_Motion(float Vx, float Vy, float rot_V, bool reset) {
     omega = (fabs(e) > control.heading_threshold) ? (e * control.P_factor) : 0;
     omega *= 0.5;
   }
+  //Serial.printf("Vx%f, Vy%f", Vx, Vy);
   RobotIKControl(Vx, Vy, omega);
 }
-/*void Vector_Motion(float Vx, float Vy){  
+/*
+void Vector_Motion(float Vx, float Vy){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
   float sensor_heading = 90.0 - current_gyro_heading;
@@ -649,7 +667,8 @@ void Vector_Motion(float Vx, float Vy, float rot_V, bool reset) {
     omega = e * control.P_factor;
   }
   RobotIKControl(Vx, Vy, omega);
-}*/
+}
+*/
 /*void Vector_Motion(float Vx, float Vy, float target_offset){  
   float omega = 0.0;
   float current_gyro_heading = gyroData.heading;
@@ -661,8 +680,13 @@ void Vector_Motion(float Vx, float Vy, float rot_V, bool reset) {
   if(fabs(e) > control.heading_threshold){
       omega = e * control.P_factor;
   }
-
-  RobotIKControl((int8_t)Vx, (int8_t)Vy, omega);
+  if(control.robot_heading > 135){
+    control.robot_heading =  135;  
+  } 
+  else if(control.robot_heading < 45){
+    control.robot_heading = 45;  
+  }
+  RobotIKControl(Vx, Vy, omega);
 
 }
 */

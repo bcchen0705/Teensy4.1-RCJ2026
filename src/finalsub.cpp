@@ -6,6 +6,8 @@
 #include <math.h>
 #include <EEPROM.h>
 
+enum SubState { SUB_IDLE, SUB_LINECAL, SUB_ATTACK };
+SubState subState = SUB_IDLE;
 #define M1 A0
 #define M2 A1
 
@@ -20,7 +22,7 @@ struct LineData{uint32_t state = 0xFFFFFFFF;} lineData;
 int readMux(int ch, int sigPin);
 void line_calibrate();
 void linesensor_update();
-void moveBackInBounds();
+bool moveBackInBounds();
 
 
 
@@ -39,6 +41,11 @@ bool overhalf = false;
 bool first_detect = false;
 uint32_t speed_timer = 0;
 
+float vx, vy, omega;
+uint8_t goal_valid = 0x00;
+
+float finalVx,finalVy;
+
 int readMux(int ch, int sigPin) {
 
   digitalWrite(s0, (ch >> 0) & 1);
@@ -56,35 +63,18 @@ void line_calibrate(){
     max_ls[i] = 0;
     min_ls[i] = 4095;
   }
-  while(1){
-
-    if(Serial8.available()){
-      if(Serial8.read() == 'E'){
-        for(uint8_t i = 0; i < LS_count; i++){
-          Serial.print(" min ");Serial.print(i);Serial.print(" = ");Serial.print(min_ls[i]);
-          Serial.print(" max ");Serial.print(i);Serial.print(" = ");Serial.print(max_ls[i]);
-          Serial.print(" avg ");Serial.print(i);Serial.print(" = ");Serial.print(avg_ls[i]);
-          Serial.println("");
-        }
-        break;
-      } 
-    }
-
-    for(uint8_t i = 0; i < LS_count; i++){
-    uint16_t reading = readMux(i % 16, (i < 16) ? 1 : 2);
-
-    if(reading > max_ls[i]) max_ls[i] = reading;
-    if(reading < min_ls[i]) min_ls[i] = reading;
-    } 
-  }
-
   for(uint8_t i = 0; i < LS_count; i++){
-      avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
-  }
-  EEPROM.put(0, avg_ls);
-  Serial8.print('D');
+        uint16_t reading = readMux(i % 16, (i < 16) ? 1 : 2);
+        if(reading > max_ls[i]) max_ls[i] = reading;
+        if(reading < min_ls[i]) min_ls[i] = reading;
+    }
 }
-
+void line_save(){
+    for(uint8_t i = 0; i < LS_count; i++)
+        avg_ls[i] = (max_ls[i] + min_ls[i]) / 2;
+    EEPROM.put(0, avg_ls);
+    Serial8.write(0xDD);  // 回傳確認
+}
 //更新
 void linesensor_update(){
   lineData.state = 0xFFFFFFFF;
@@ -112,7 +102,7 @@ void linesensor_update(){
   delay(50);*/
 
 }
-void moveBackInBounds(){
+bool moveBackInBounds(){
   //-----LINE SENSOR-----
   float sumX = 0.0f, sumY = 0.0f;
   int count = 0;
@@ -133,7 +123,7 @@ void moveBackInBounds(){
 
   // B : 反彈
 
-  if(linedetected && count > 1){
+  if(linedetected && count >= 1){
     float lineDegree = atan2(sumY, sumX) * RtoD_const;
     if (lineDegree < 0){lineDegree += 360;} 
     
@@ -166,19 +156,64 @@ void moveBackInBounds(){
     }
     Serial.print("finalDegree =");Serial.println(finalDegree);
         
-    lineVx = 40.0f *cos(finalDegree * DtoR_const);
-    lineVy = 40.0f *sin(finalDegree * DtoR_const);   
+    lineVx = 60.0f *cos(finalDegree * DtoR_const);
+    lineVy = 60.0f *sin(finalDegree * DtoR_const);   
+    return true;
   }
   else{
     first_detect = false;
     lineVx = 0;
     lineVy = 0;
+    return false;
   }
 
-  Serial.print("lineVx =");Serial.println(lineVx);
-  Serial.print("lineVy =");Serial.println(lineVy);
-  
 
+}
+
+void readCommand(){
+    while(Serial8.available() > 0){
+        uint8_t cmd = Serial8.read();
+        if(cmd == 0xCC && subState != SUB_ATTACK){
+            subState = SUB_LINECAL;
+            for(int i = 0; i < LS_count; i++){
+                max_ls[i] = 0;
+                min_ls[i] = 4095;
+            }
+        }
+        else if(cmd == 0xEE && subState == SUB_LINECAL){
+            // 存檔
+            line_save(); 
+            subState = SUB_IDLE;
+        }
+        else if(cmd == 0xAA){
+            subState = SUB_ATTACK;
+        }
+    }
+}
+
+void readMainPacket(){
+    static uint8_t buffer[11];
+    static int index = 0;
+    while(Serial8.available() > 0){
+        uint8_t b = Serial8.read();
+        if(index == 0 || index == 1){
+            if(b == 0xAA) buffer[index++] = b;
+            else index = 0;
+            continue;
+        }
+        buffer[index++] = b;
+        if(index == 11){
+            index = 0;
+            if(buffer[10] != 0xEE) continue;
+            uint8_t sum = 0;
+            for(int i = 2; i <= 8; i++) sum += buffer[i];
+            if(sum != buffer[9]) continue;
+            vx         = (int16_t)((buffer[3] << 8) | buffer[2]);
+            vy         = (int16_t)((buffer[5] << 8) | buffer[4]);
+            omega      = (int16_t)((buffer[7] << 8) | buffer[6]);
+            goal_valid =  buffer[8];
+        }
+    }
 }
 
 void setup() {
@@ -199,17 +234,35 @@ void setup() {
   
  
 }
-
 void loop(){
-  if (Serial8.available()) {
-    char cmd = Serial8.read();
-    //Serial.print(cmd);
-    if (cmd == 'C') {
-      line_calibrate(); // 進入校準模式
+  if(subState != SUB_ATTACK){
+        readCommand();  // ✅ 只在非 ATTACK 時讀指令
     }
+  if(subState == SUB_LINECAL){
+    line_calibrate();
   }
-  readBNO085Yaw();
-  linesensor_update();
-  moveBackInBounds();
-  Vector_Motion(lineVx, lineVy,0,1);
+  else if(subState == SUB_ATTACK){
+    readMainPacket();   // 收 vx/vy/omega
+    linesensor_update();
+    readBNO085Yaw();
+    bool onLine = moveBackInBounds();
+    float omg = -omega/2000;
+    /*if(lineData.state != 0xFFFFFFFF ){MotorStop();}
+    if(onLine){
+      finalVx = lineVx;
+      finalVy = lineVy;
+    }
+    else{
+      finalVx = vx;
+      finalVy = vy;
+    } */    // 白線更新
+    finalVx = vx;finalVy= vy;
+    if(goal_valid == 0x00){
+    Vector_Motion(finalVx, finalVy, 0, 1);
+    }
+    else{
+    Vector_Motion(finalVx, finalVy, omg, 0);
+    }
+    Serial.println(omg,5);
+  }
 }

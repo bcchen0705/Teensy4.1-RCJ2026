@@ -1,25 +1,91 @@
 #include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <Arduino.h>
 #include <Robot.h>
 #include <math.h>
 
+#define possession_Threshold 150
+
+//CAMERA
+unsigned long lastCameraUpdate = 0;  // 記錄上次執行時間
+const unsigned long interval = 50;  // 20Hz = 每50毫秒一次
+
+//GOAL
+//uint32_t lastTargetTime = 0;
+//static float rotate = 0;
+//static bool isRecovering = false; // 紀錄是否正在處理邊緣回彈
+
 uint8_t goal_valid = 0x00;
+float final_omega = 0;
 float d_last_error = 0;
 unsigned long last_time = 0;
-float final_omega = 0;
 
-void setup(){
-    Robot_Init();
-    drawMessage("START");
+enum State { READY, SCANNING, ATTACK };
+State state = READY;
+
+bool btnPressed(int pin){
+    static unsigned long last[40] = {0};
+    if(digitalRead(pin) == LOW && millis() - last[pin] > 200){
+        last[pin] = millis();
+        return true;
+    }
+    return false;
 }
 
+
+void setup(){
+  Robot_Init();
+
+}
 void loop(){
+  if(state == READY || state == SCANNING){
+        if(btnPressed(BTN_ENTER)){   // BTN3 → 開始掃線
+            state = SCANNING;
+            Serial8.write(0xCC);
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setCursor(0, 20);
+            display.println("SCANNING");
+            display.display();
+        }
+        if(btnPressed(BTN_ESC) && state == SCANNING){  // BTN4 → 存檔
+            Serial8.write(0xEE);
+            state = READY;
+           unsigned long t = millis();
+            while(millis() - t < 2000){
+                if(Serial8.available() && Serial8.read() == 0xDD) break;
+            }
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setCursor(0, 20);
+            display.println("SAVED\nREADY");
+            display.display();
+            }
+        
+        if(btnPressed(BTN_UP) ){      // BTN1 → 進攻
+            state = ATTACK;
+            Serial8.write(0xAA);
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setCursor(0, 20);
+            display.println("ATTACK");
+            display.display();
+        }
+        if(state == READY){
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setCursor(0, 20);
+            display.println("READY");
+            display.display();
+        }
+        return;  // 非進攻模式不做運算
+    }
     readBNO085Yaw();
     readBallCam();
     readussensor();
     readcamera();
 
-    // ── 球門 omega 計算 ──────────────────────────────
     if(camData.goal_valid){
         goal_valid = 0xFF;
         int error = camData.goal_x - 130;
@@ -32,14 +98,14 @@ void loop(){
         d_last_error = error;
         last_time = now;
 
-        final_omega = 0.01f * error + 0.03f * d_error;
+        final_omega = 0.02f * error + 0.03f * d_error;
         final_omega = constrain(final_omega, -10.0f, 10.0f);
-        if(abs(error) < 60) final_omega = 0;
+        if(abs(error) < 40) final_omega = 0;
         Serial.println("GOAL--------------------------------------");
         Serial.print("X= ");     Serial.println(camData.goal_x);
         Serial.print("error= "); Serial.println(error);
         Serial.print("d_err= "); Serial.println(d_error);
-        Serial.print("omega= "); Serial.println(final_omega);
+        Serial.print("omega= "); Serial.println(final_omega,5);
     }
     else{
         Serial.println("GOAL UNFIND");
@@ -55,46 +121,52 @@ void loop(){
         float offset = 0;
         float ballspeed = constrain(map(ballData.dist, 25, 55, 30, 60), 30, 60);
 
-        if(ballData.dist >= 65){
+        if(ballData.dist >= 55){
             moving_degree = ballData.angle;
             offset = 0;
         }
         else{
-            float angleError  = fabs(ballData.angle - 90);
-            float angleFactor = 1.0 - constrain(angleError / 90.0, 0.0, 1.0);
-            ballspeed = ballspeed * (0.4 + 0.6 * angleFactor);
+            //float angleError  = fabs(ballData.angle - 90);
+            //float angleFactor = 1.0 - constrain(angleError / 90.0, 0.0, 1.0);
+            //ballspeed = ballspeed * (0.4 + 0.6 * angleFactor);
             float side;
-            if(ballData.angle >= 70 && ballData.angle <= 110){
-                ballspeed = 50;
+            if(ballData.angle >= 82 && ballData.angle <= 98){
+                ballspeed = 40;
                 offset = 0;
-                moving_degree = ballData.angle ;
+                moving_degree = 90;
             }
-            else if(ballData.angle > 110 && ballData.angle < 270){
+            else if(ballData.angle > 98 && ballData.angle < 270){
                 side = 1;
                 float offsetRatio = exp(-1.5 * (ballData.dist - 50));
                 offsetRatio = constrain(offsetRatio, 0.0, 1.0);
-                offset = 90 * offsetRatio;
+                offset = 80 * offsetRatio;
                 //offset = 100 * offsetRatio * offsetFactor;
+                float angleError = fabs(ballData.angle - 90);
+                float smoothWeight = constrain(angleError / 30.0f, 0.0f, 1.0f);
                 moving_degree = ballData.angle + (offset * side);
             }
-            else if(ballData.angle < 70 || ballData.angle >= 270){
+            else if(ballData.angle < 82 || ballData.angle >= 270){
                 side = -1;
-                float offsetRatio = exp(-1.5 * (ballData.dist - 50));
+                float offsetRatio = exp(-0.8 * (ballData.dist - 55));
                 offsetRatio = constrain(offsetRatio, 0.0, 1.0);
-                offset = 90 * offsetRatio;
+                offset = 80 * offsetRatio;
                 //offset = 100 * offsetRatio * offsetFactor;
-                moving_degree = ballData.angle + (offset * side);
+                float angleError = fabs(ballData.angle - 90);
+                float smoothWeight = constrain(angleError / 30.0f, 0.0f, 1.0f);
+                moving_degree = ballData.angle + (offset * side*smoothWeight);
+            }
         }
-        }
-        if(ballData.dist <= 37 && ballData.angle >= 80 && ballData.angle <= 100){
+        if(ballData.dist <= 27 && ballData.angle >= 80 && ballData.angle <= 100){
             moving_degree = 90;
-            ballspeed = 80;
+            ballspeed = 60;
         }
         moving_degree = fmod(moving_degree + 360.0f, 360.0f);
         ballData.Vx = (int)round(ballspeed * cos(moving_degree * DtoR_const));
         ballData.Vy = (int)round(ballspeed * sin(moving_degree * DtoR_const));
 
-        
+        float angleError = fabs(ballData.angle - 90);
+        float vxWeight = constrain(angleError / 30.0f, 0.0f, 1.0f);
+        ballData.Vx = (int)round(ballData.Vx * vxWeight*0.7);   
         
         //右邊線
         if(usData.dist_r <= 16 ){if(ballData.Vx > 0)ballData.Vx = 0;}
@@ -109,16 +181,16 @@ void loop(){
         //-------------------------------------------------------------------
         
         //前角落
-        if(usData.dist_l <= 40){
+
         if(usData.dist_f <= 25){if(ballData.Vy > 0)ballData.Vy = 0;}
         else if(usData.dist_f <= 27){if(ballData.Vy > 0)ballData.Vy *= 0.6;}
         else if(usData.dist_f <= 29){if(ballData.Vy > 0)ballData.Vy *= 0.8;}
-        }
-        if(usData.dist_r <= 31){
+    
+        
         if(usData.dist_f <= 25){if(ballData.Vy > 0)ballData.Vy = 0;}
         else if(usData.dist_f <= 27){if(ballData.Vy > 0)ballData.Vy *= 0.6;}
         else if(usData.dist_f <= 29){if(ballData.Vy > 0)ballData.Vy *= 0.8;}
-        }
+        
         //後角落
         if(usData.dist_l <= 43){
         if(usData.dist_b <= 25){if(ballData.Vy < 0)ballData.Vy = 0;}
@@ -155,7 +227,7 @@ void loop(){
     // AA AA vx_l vx_h vy_l vy_h omega_l omega_h goal_valid checksum EE → 11 bytes
     int16_t vx_i    = (int16_t)ballData.Vx;
     int16_t vy_i    = (int16_t)ballData.Vy;
-    int16_t omega_i = (int16_t)final_omega;
+    int16_t omega_i = (final_omega)*100;
 
     uint8_t packet[11];
     packet[0] = 0xAA;
