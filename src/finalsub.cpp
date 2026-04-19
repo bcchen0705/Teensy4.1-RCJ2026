@@ -247,7 +247,7 @@ void loop(){
     readBNO085Yaw();
     bool onLine = moveBackInBounds();
     float omg = -omega/2000;
-    /*if(lineData.state != 0xFFFFFFFF ){MotorStop();}
+    //if(lineData.state != 0xFFFFFFFF ){MotorStop();}
     if(onLine){
       finalVx = lineVx;
       finalVy = lineVy;
@@ -255,8 +255,7 @@ void loop(){
     else{
       finalVx = vx;
       finalVy = vy;
-    } */    // 白線更新
-    finalVx = vx;finalVy= vy;
+    }     // 白線更新
     if(goal_valid == 0x00){
     Vector_Motion(finalVx, finalVy, 0, 1);
     }

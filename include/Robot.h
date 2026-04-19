@@ -602,9 +602,7 @@ static int8_t applyMotorCal(float raw, const MotorCal& cal) {
     float out = scaled + (scaled > 0 ? cal.dead : -cal.dead);
     return (int8_t)constrain(out, -127, 127);
 }
-
-static float current_p[5] = {0, 0, 0, 0, 0};  // 記錄每顆馬達當前速度
-void RobotIKControl(float vx, float vy, float omega){
+/*void RobotIKControl(float vx, float vy, float omega){
     float target[5];
     
     target[1] = applyMotorCal(-0.643f * vx + 0.766f * vy + omega, CAL[1]);
@@ -612,7 +610,7 @@ void RobotIKControl(float vx, float vy, float omega){
     target[3] = applyMotorCal( 0.707f * vx - 0.707f * vy + omega, CAL[3]);
     target[4] = applyMotorCal( 0.707f * vx + 0.707f * vy + omega, CAL[4]);
     
-    float ramp = 5.0f;
+    float ramp = 2.0f;
 
     for(int i = 1; i <= 4; i++){
         float diff = target[i] - current_p[i];
@@ -622,6 +620,17 @@ void RobotIKControl(float vx, float vy, float omega){
             current_p[i] += (diff > 0) ? ramp : -ramp;
         SetMotorSpeed(i, (int8_t)current_p[i]);
     }
+}*/
+void RobotIKControl(float vx, float vy, float omega){
+    float p1 = -0.643f * vx + 0.766f * vy + omega;
+    float p2 = -0.643f * vx - 0.766f * vy + omega;
+    float p3 =  0.707f * vx - 0.707f * vy + omega;
+    float p4 =  0.707f * vx + 0.707f * vy + omega;
+
+    SetMotorSpeed(1, applyMotorCal(p1, CAL[1]));
+    SetMotorSpeed(2, applyMotorCal(p2, CAL[2]));
+    SetMotorSpeed(3, applyMotorCal(p3, CAL[3]));
+    SetMotorSpeed(4, applyMotorCal(p4, CAL[4]));
 }
 
 
