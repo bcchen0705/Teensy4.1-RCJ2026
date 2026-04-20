@@ -143,22 +143,22 @@ void loop(){
                 //offset = 100 * offsetRatio * offsetFactor;
                 float angleError = fabs(ballData.angle - 90);
                 float smoothWeight = constrain(angleError / 30.0f, 0.0f, 1.0f);
-                moving_degree = ballData.angle + (offset * side*smoothWeight);
+                moving_degree = ballData.angle + (offset * side * smoothWeight);
             }
             else if(ballData.angle < 84 || ballData.angle >= 270){
                 side = -1;
-                float offsetRatio = exp(-0.8 * (ballData.dist - 55));
+                float offsetRatio = exp(-1.5 * (ballData.dist - 50));
                 offsetRatio = constrain(offsetRatio, 0.0, 1.0);
                 offset = 80 * offsetRatio;
                 //offset = 100 * offsetRatio * offsetFactor;
                 float angleError = fabs(ballData.angle - 90);
                 float smoothWeight = constrain(angleError / 30.0f, 0.0f, 1.0f);
-                moving_degree = ballData.angle + (offset * side*smoothWeight);
+                moving_degree = ballData.angle + (offset * side * smoothWeight);
             }
         }
         if(ballData.dist <= 29 && ballData.angle >= 80 && ballData.angle <= 100){
             moving_degree = 90;
-            ballspeed = 60;
+            ballspeed = 80;
         }
         moving_degree = fmod(moving_degree + 360.0f, 360.0f);
         ballData.Vx = (int)round(ballspeed * cos(moving_degree * DtoR_const));
@@ -166,7 +166,7 @@ void loop(){
 
         float angleError = fabs(ballData.angle - 90);
         float vxWeight = constrain(angleError / 30.0f, 0.0f, 1.0f);
-        ballData.Vx = (int)round(ballData.Vx * vxWeight*0.65);   
+        ballData.Vx = (int)round(ballData.Vx * vxWeight * 0.65);   
         
         //右邊線
         if(usData.dist_r <= 16 ){if(ballData.Vx > 0)ballData.Vx = 0;}

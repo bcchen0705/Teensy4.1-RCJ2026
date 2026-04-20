@@ -248,19 +248,22 @@ void loop(){
     bool onLine = moveBackInBounds();
     float omg = -omega/2000;
     //if(lineData.state != 0xFFFFFFFF ){MotorStop();}
+    static bool useRamp=false;
     if(onLine){
       finalVx = lineVx;
       finalVy = lineVy;
+      useRamp = false;
     }
     else{
       finalVx = vx;
       finalVy = vy;
+      useRamp = true;
     }     // 白線更新
     if(goal_valid == 0x00){
-    Vector_Motion(finalVx, finalVy, 0, 1);
+      Vector_Motion(finalVx, finalVy, 0, 1, useRamp);
     }
     else{
-    Vector_Motion(finalVx, finalVy, omg, 0);
+      Vector_Motion(finalVx, finalVy, omg, 0, useRamp);
     }
     Serial.println(omg,5);
   }

@@ -602,7 +602,9 @@ static int8_t applyMotorCal(float raw, const MotorCal& cal) {
     float out = scaled + (scaled > 0 ? cal.dead : -cal.dead);
     return (int8_t)constrain(out, -127, 127);
 }
-/*void RobotIKControl(float vx, float vy, float omega){
+static float current_p[5] = {0,0,0,0,0};
+
+void RobotIKControl(float vx, float vy, float omega,bool useRamp){
     float target[5];
     
     target[1] = applyMotorCal(-0.643f * vx + 0.766f * vy + omega, CAL[1]);
@@ -610,17 +612,23 @@ static int8_t applyMotorCal(float raw, const MotorCal& cal) {
     target[3] = applyMotorCal( 0.707f * vx - 0.707f * vy + omega, CAL[3]);
     target[4] = applyMotorCal( 0.707f * vx + 0.707f * vy + omega, CAL[4]);
     
-    float ramp = 2.0f;
+    float ramp = 5.0f;
 
     for(int i = 1; i <= 4; i++){
+      if(useRamp){
         float diff = target[i] - current_p[i];
         if(fabs(diff) <= ramp)
             current_p[i] = target[i];
         else
             current_p[i] += (diff > 0) ? ramp : -ramp;
-        SetMotorSpeed(i, (int8_t)current_p[i]);
+      }
+      else{
+        current_p[i] = target[i];
+      }
+      SetMotorSpeed(i, (int8_t)current_p[i]);
     }
-}*/
+}
+/*
 void RobotIKControl(float vx, float vy, float omega){
     float p1 = -0.643f * vx + 0.766f * vy + omega;
     float p2 = -0.643f * vx - 0.766f * vy + omega;
@@ -633,8 +641,8 @@ void RobotIKControl(float vx, float vy, float omega){
     SetMotorSpeed(4, applyMotorCal(p4, CAL[4]));
 }
 
-
-void Vector_Motion(float Vx, float Vy, float rot_V, bool reset) {
+*/
+void Vector_Motion(float Vx, float Vy, float rot_V, bool reset,bool useRamp) {
   float omega = 0.0;
   if(reset && rot_V == 0){
     control.robot_heading = 90;
@@ -664,7 +672,12 @@ void Vector_Motion(float Vx, float Vy, float rot_V, bool reset) {
     omega *= 0.5;
   }
   //Serial.printf("Vx%f, Vy%f", Vx, Vy);
-  RobotIKControl(Vx, Vy, omega);
+  if(useRamp){
+    RobotIKControl(Vx, Vy, omega,1);
+  }
+  else{
+    RobotIKControl(Vx, Vy, omega,0);
+  }
 }
 /*
 void Vector_Motion(float Vx, float Vy){  
