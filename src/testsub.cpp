@@ -650,6 +650,7 @@ void loop() {
     runPhases();
 }
 */
+/*
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -791,4 +792,50 @@ void loop() {
     readBNO085Yaw();
     if (subState == SUB_IDLE) return;
     runPhases();
+}*///繞球場
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Arduino.h>
+#include <Robot.h>
+#include <math.h>
+
+enum Phase { PHASE_FORWARD, PHASE_BACKWARD, PHASE_STOP };
+Phase phase = PHASE_FORWARD;
+
+unsigned long phaseTimer = 0;
+
+void setup() {
+    Robot_Init();
+    Serial2.begin(115200);
+    phaseTimer = millis();
+    Serial.println("START FORWARD");
+}
+
+void loop() {
+    readBNO085Yaw();
+
+    switch (phase) {
+
+        case PHASE_FORWARD:
+            Vector_Motion(0, 20, 0, true, false);
+            if (millis() - phaseTimer > 2000) {
+                phase      = PHASE_BACKWARD;
+                phaseTimer = millis();
+                Serial.println("→ BACKWARD");
+            }
+            break;
+
+        case PHASE_BACKWARD:
+            Vector_Motion(0, -20, 0, true, false);
+            if (millis() - phaseTimer > 2000) {
+                phase = PHASE_STOP;
+                Serial.println("→ STOP");
+            }
+            break;
+
+        case PHASE_STOP:
+            MotorStop();
+            break;
+    }
 }

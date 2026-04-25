@@ -250,7 +250,7 @@ void loop(){
       finalVy = vy;
   //finalVx = vx;
   //finalVy = vy;
-  Vector_Motion(finalVx,finalVy,omega,0,0);
+  Vector_Motion(0,20,0,1,0);
   Serial.print("vx= ");Serial.println(finalVx);
   Serial.print("vy= ");Serial.println(finalVy);
 

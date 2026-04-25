@@ -1,10 +1,12 @@
 #include <Servo.h>
 #include <Arduino.h>
+#include <Robot.h>
 Servo ESC;  // Create ESC control object
 
 void setup() {
     Serial.begin(9600);
-
+    Robot_Init();
+    drawMessage("Start");
     // Attach ESC to pin 9
     ESC.attach(23,1000,2000);
 
