@@ -522,6 +522,7 @@ void loop() {
     if (subState == SUB_IDLE) return;
     runPhases();
 }*/
+/*
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -640,6 +641,149 @@ void setup() {
     Robot_Init();
     Serial2.begin(115200);
     Serial.println("testsub ready");
+}
+
+void loop() {
+    readMainPacket();
+    readBNO085Yaw();
+    if (subState == SUB_IDLE) return;
+    runPhases();
+}
+*/
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Arduino.h>
+#include <Robot.h>
+#include <math.h>
+
+enum SubState { SUB_IDLE, SUB_RUN };
+SubState subState = SUB_IDLE;
+
+// 繞行方向：沿右牆前進 → 沿前牆左移 → 沿左牆後退 → 沿後牆右移 → 回起點
+enum Phase {
+    PHASE_NORTH,   // 沿右牆往前（+Vy），維持 us_r = 20
+    PHASE_WEST,    // 沿前牆往左（-Vx），維持 us_f = 20
+    PHASE_SOUTH,   // 沿左牆往後（-Vy），維持 us_l = 20
+    PHASE_EAST,    // 沿後牆往右（+Vx），維持 us_b = 20
+    PHASE_STOP
+};
+Phase phase = PHASE_NORTH;
+
+int16_t s_us_f = 0, s_us_b = 0, s_us_l = 0, s_us_r = 0;
+unsigned long phaseTimer = 0;
+
+#define TARGET_DIST  20     // 維持距離 cm
+#define BASE_SPEED   25     // 行進速度
+#define KP           1.2f   // P 增益：距離誤差 → 側向修正
+
+// 換邊條件：靠近前方牆壁 20cm 時切換 phase
+#define CORNER_DIST  22
+
+void readMainPacket() {
+    static uint8_t buffer[20];
+    static int index = 0;
+
+    while (Serial8.available() > 0) {
+        uint8_t b = Serial8.read();
+
+        if (subState == SUB_IDLE) {
+            if (b == 0xBB) {
+                subState   = SUB_RUN;
+                phase      = PHASE_NORTH;
+                phaseTimer = millis();
+                index      = 0;
+                Serial.println("START");
+            }
+            continue;
+        }
+
+        if (index == 0 || index == 1) {
+            if (b == 0xAA) buffer[index++] = b;
+            else index = 0;
+            continue;
+        }
+        buffer[index++] = b;
+        if (index == 20) {
+            index = 0;
+            if (buffer[19] != 0xEE) continue;
+            uint8_t sum = 0;
+            for (int i = 2; i <= 17; i++) sum += buffer[i];
+            if (sum != buffer[18]) continue;
+
+            s_us_f = (int16_t)((buffer[11] << 8) | buffer[10]);
+            s_us_b = (int16_t)((buffer[13] << 8) | buffer[12]);
+            s_us_l = (int16_t)((buffer[15] << 8) | buffer[14]);
+            s_us_r = (int16_t)((buffer[17] << 8) | buffer[16]);
+        }
+    }
+}
+
+void runPhases() {
+    float Vx = 0, Vy = 0;
+    float err = 0;
+
+    switch (phase) {
+
+        // ── 往前走，貼著右牆 ─────────────────────────────
+        case PHASE_NORTH:
+            Vy  = BASE_SPEED;
+            err = s_us_r - TARGET_DIST;          // 右牆誤差
+            Vx  = constrain(KP * err, -15.0f, 15.0f);
+            if (s_us_f <= CORNER_DIST) {         // 碰到前牆 → 轉彎
+                phase = PHASE_WEST;
+                Serial.println("-> WEST");
+            }
+            break;
+
+        // ── 往左走，貼著前牆 ─────────────────────────────
+        case PHASE_WEST:
+            Vx  = -BASE_SPEED;
+            err = s_us_f - TARGET_DIST;          // 前牆誤差
+            Vy  = constrain(KP * err, -15.0f, 15.0f);
+            if (s_us_l <= CORNER_DIST) {         // 碰到左牆 → 轉彎
+                phase = PHASE_SOUTH;
+                Serial.println("-> SOUTH");
+            }
+            break;
+
+        // ── 往後走，貼著左牆 ─────────────────────────────
+        case PHASE_SOUTH:
+            Vy  = -BASE_SPEED;
+            err = s_us_l - TARGET_DIST;          // 左牆誤差
+            Vx  = constrain(-KP * err, -15.0f, 15.0f);  // 注意方向反轉
+            if (s_us_b <= CORNER_DIST) {         // 碰到後牆 → 轉彎
+                phase = PHASE_EAST;
+                Serial.println("-> EAST");
+            }
+            break;
+
+        // ── 往右走，貼著後牆 ─────────────────────────────
+        case PHASE_EAST:
+            Vx  = BASE_SPEED;
+            err = s_us_b - TARGET_DIST;          // 後牆誤差
+            Vy  = constrain(-KP * err, -15.0f, 15.0f);  // 注意方向反轉
+            if (s_us_r <= CORNER_DIST) {         // 回到起點右牆 → 停止（或重新循環）
+                phase = PHASE_NORTH;             // 改成 PHASE_STOP 若只繞一圈
+                Serial.println("-> NORTH (loop)");
+            }
+            break;
+
+        case PHASE_STOP:
+            MotorStop();
+            return;
+    }
+
+    Serial.printf("phase=%d Vx=%.1f Vy=%.1f | f=%d b=%d l=%d r=%d\n",
+                  phase, Vx, Vy, s_us_f, s_us_b, s_us_l, s_us_r);
+
+    Vector_Motion(Vx, Vy, 0, true, false);
+}
+
+void setup() {
+    Robot_Init();
+    Serial2.begin(115200);
+    Serial.println("rect follow ready");
 }
 
 void loop() {
