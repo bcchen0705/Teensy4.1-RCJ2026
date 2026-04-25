@@ -5,74 +5,72 @@
 #include <Robot.h>
 #include <math.h>
 
-#define ORBIT_RADIUS  50.0f   // 目標距離 cm
-#define ORBIT_SPEED   35.0f   // 切線速度
-#define ORBIT_KR       0.8f   // 徑向增益
-#define FACE_KP        0.15f  // 面球旋轉增益
-
-bool running = false;
-
-bool btnPressed(int pin){
+bool btnPressed(int pin) {
     static unsigned long last[40] = {0};
-    if(digitalRead(pin) == LOW && millis() - last[pin] > 200){
+    if (digitalRead(pin) == LOW && millis() - last[pin] > 200) {
         last[pin] = millis();
         return true;
     }
     return false;
 }
 
-void setup(){
-    Robot_Init();
-    drawMessage("TEST READY");
+void sendPacket() {
+    int16_t ball_angle = (int16_t)ballData.angle;
+    int16_t ball_dist  = (int16_t)ballData.dist;
+    uint8_t ball_valid = ballData.valid ? 0xFF : 0x00;
+    int16_t goal_x     = (int16_t)camData.goal_x;
+    uint8_t goal_valid = camData.goal_valid ? 0xFF : 0x00;
+    int16_t us_f       = (int16_t)usData.dist_f;
+    int16_t us_b       = (int16_t)usData.dist_b;
+    int16_t us_l       = (int16_t)usData.dist_l;
+    int16_t us_r       = (int16_t)usData.dist_r;
+
+    uint8_t packet[21];
+    packet[0]  = 0xAA;
+    packet[1]  = 0xAA;
+    packet[2]  = ball_angle & 0xFF;
+    packet[3]  = (ball_angle >> 8) & 0xFF;
+    packet[4]  = ball_dist  & 0xFF;
+    packet[5]  = (ball_dist  >> 8) & 0xFF;
+    packet[6]  = ball_valid;
+    packet[7]  = goal_x & 0xFF;
+    packet[8]  = (goal_x >> 8) & 0xFF;
+    packet[9]  = goal_valid;
+    packet[10] = us_f & 0xFF;
+    packet[11] = (us_f >> 8) & 0xFF;
+    packet[12] = us_b & 0xFF;
+    packet[13] = (us_b >> 8) & 0xFF;
+    packet[14] = us_l & 0xFF;
+    packet[15] = (us_l >> 8) & 0xFF;
+    packet[16] = us_r & 0xFF;
+    packet[17] = (us_r >> 8) & 0xFF;
+
+    uint8_t sum = 0;
+    for (int i = 2; i <= 17; i++) sum += packet[i];
+    packet[18] = sum;
+    packet[19] = 0xEE;
+
+    Serial8.write(packet, 20);
 }
 
-void loop(){
-    if(btnPressed(BTN_UP))   { running = true;  drawMessage("RUN"); }
-    if(btnPressed(BTN_ESC))  { running = false; MotorStop(); drawMessage("STOP"); }
-    if(!running) return;
+void setup() {
+    Robot_Init();
+    Serial.println("testmain ready");
+}
 
-    readBNO085Yaw();
-    readBallCam();
-    //readussensor();
-
-    float Vx = 0, Vy = 0, omega = 0;
-
-    if(ballData.valid){
-        int ballAngle = ballData.angle;
-        int ballDist  = ballData.dist;
-
-        // 切線（順時針）
-        float tang = fmod(ballAngle - 90.0f + 360.0f, 360.0f);
-        Vx = ORBIT_SPEED * cos(tang * DtoR_const);
-        Vy = ORBIT_SPEED * sin(tang * DtoR_const);
-
-        // 徑向修正
-        float radErr = constrain(ORBIT_KR * (ballDist - ORBIT_RADIUS), -30.0f, 30.0f);
-        Vx += radErr * cos(ballAngle * DtoR_const);
-        Vy += radErr * sin(ballAngle * DtoR_const);
-
-        // 面球旋轉：讓 ballAngle → 90
-        omega = (ballAngle - 90.0f) * FACE_KP;
-        omega = constrain(omega, -15.0f, 15.0f);
-
-      
+void loop() {
+    // 按鈕通知 sub
+    if (btnPressed(BTN_UP)) {
+        Serial8.write(0xBB);  // BTN_UP 訊號
+        Serial.println("BTN_UP");
     }
-    Serial.print("Vx");Serial.println(Vx);
-    Serial.print("Vy");Serial.println(Vy);
-    Serial.print("omega");Serial.println(omega);
-    // 打包送 sub
-    int16_t vx_i = (int16_t)Vx;
-    int16_t vy_i = (int16_t)Vy;
-    int16_t om_i = (int16_t)(omega * 100.0f);
 
-    uint8_t pkt[11];
-    pkt[0] = 0xAA; pkt[1] = 0xAA;
-    pkt[2] = vx_i & 0xFF;        pkt[3] = (vx_i >> 8) & 0xFF;
-    pkt[4] = vy_i & 0xFF;        pkt[5] = (vy_i >> 8) & 0xFF;
-    pkt[6] = om_i & 0xFF;        pkt[7] = (om_i >> 8) & 0xFF;
-    pkt[8] = 0x00;
-    uint8_t sum = 0;
-    for(int i = 2; i <= 8; i++) sum += pkt[i];
-    pkt[9] = sum; pkt[10] = 0xEE;
-    Serial8.write(pkt, 11);
+    // 讀所有感測器
+    readBNO085Yaw();
+    readussensor();
+    readBallCam();
+    readcamera();
+
+    // 送封包
+    sendPacket();
 }
