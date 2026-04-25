@@ -50,12 +50,12 @@ void loop(){
   
   finalVx = vx;
   finalVy = vy;
-  float omg = -omega/1500;
+  float omg = -omega/2000;
     Serial.println(omg,3);
   if(goal_valid == 0x00){
-      Vector_Motion(finalVx, finalVy, 0, 1);
+      Vector_Motion(finalVx, finalVy, 0, 1,0);
   }
   else{
-      Vector_Motion(finalVx, finalVy, omg, 0);
+      Vector_Motion(finalVx, finalVy, omg, 0,0);
   }
 }

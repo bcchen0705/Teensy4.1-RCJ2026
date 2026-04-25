@@ -86,7 +86,7 @@ unsigned long _lastUpdate = 0;
 #define left_us A16
 #define back_us A17
 #define right_us A14
-#define alpha 0.75
+#define alpha 0.15
 float pos_x_f = 0.0;
 float pos_y_f = 0.0;
 
@@ -174,13 +174,12 @@ void Robot_Init(){
   //digitalWrite(13, HIGH);
   
   Serial.begin(115200);
-  
-  Serial3.begin(115200);
-  Serial4.begin(115200);
-  Serial5.begin(115200);
+  Serial3.begin(921600);
+  Serial4.begin(921600);
+  Serial5.begin(921600);
   Serial6.begin(115200);
   Serial7.begin(115200);
-  Serial8.begin(115200);
+  Serial8.begin(921600);
   
   pinMode(pwmPin1,OUTPUT);
   pinMode(DIRA_1,OUTPUT);
@@ -210,16 +209,16 @@ void Robot_Init(){
   
   pinMode(Kicker_Pin, OUTPUT);
   pinMode(Charge_Pin, OUTPUT);
-  digitalWrite(Kicker_Pin, HIGH);
+  digitalWrite(Kicker_Pin, LOW);
   digitalWrite(Charge_Pin, LOW);
-  
-  pinMode(back_ls, INPUT_PULLUP);
-  pinMode(left_ls, INPUT_PULLUP);
-  pinMode(right_ls, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(back_ls), backlstouch, RISING);
-  attachInterrupt(digitalPinToInterrupt(left_ls), leftlstouch, RISING);
-  attachInterrupt(digitalPinToInterrupt(right_ls), rightlstouch, RISING);
+  //pinMode(back_ls, INPUT_PULLUP);
+  //pinMode(left_ls, INPUT_PULLUP);
+  //pinMode(right_ls, INPUT_PULLUP);
+
+  //attachInterrupt(digitalPinToInterrupt(back_ls), backlstouch, RISING);
+  //attachInterrupt(digitalPinToInterrupt(left_ls), leftlstouch, RISING);
+  //attachInterrupt(digitalPinToInterrupt(right_ls), rightlstouch, RISING);
 
   Wire.begin();
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) while(1);
@@ -655,11 +654,11 @@ void Vector_Motion(float Vx, float Vy, float rot_V, bool reset,bool useRamp) {
   }
   else{
     control.robot_heading += rot_V; // Update target heading based on input
-    if(control.robot_heading > 150){
-      control.robot_heading =  150;  
+    if(control.robot_heading > 135){
+      control.robot_heading =  135;  
     }
-    else if(control.robot_heading < 30){
-      control.robot_heading = 30;  
+    else if(control.robot_heading < 45){
+      control.robot_heading = 45;  
     }
     //.printf("control.robot_heading%f\n",control.robot_heading);
     

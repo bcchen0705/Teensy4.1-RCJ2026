@@ -16,7 +16,7 @@
 #define LS_count 32
 
 struct LineData{uint32_t state = 0xFFFFFFFF;} lineData;
-
+uint8_t goal_valid = 0x00;
 bool readMainCore();
 int readMux(int ch, int sigPin);
 void line_calibrate();
@@ -24,7 +24,7 @@ void linesensor_update();
 bool moveBackInBounds();
 
 //ball
-float vx;float vy;float ballDeg;int ballDist;
+float vx, vy, omega;float ballDeg;int ballDist;
 
 //line
 uint16_t max_ls[LS_count];
@@ -201,52 +201,30 @@ bool moveBackInBounds(){
   }
 }
 
-bool readMainCore() {
-  while (Serial8.available() > 0) {
-    uint8_t header = Serial8.peek();
-
-    // --- 情況 A：如果是校準指令 (0xFF 開頭) ---
-    if (header == 0xFF) {
-      if (Serial8.available() >= 3) {
-        Serial8.read(); // 讀掉第一個 0xFF
-        Serial8.read(); // 讀掉第二個 0xFF
-        uint8_t cmd = Serial8.read();
-        if (cmd == 0x01) line_calibrate();
-        // 這裡不用 return true，讓它繼續檢查有沒有球的資料
-      } else {
-        return false; // 資料還沒傳完，等下次
-      }
-    } 
-    
-    // --- 情況 B：如果是追球數據 (0xAA 開頭) ---
-    else if (header == 0xAA) {
-      if (Serial8.available() < 8) return false;
-
-      Serial8.read(); // 讀掉第一個 0xAA
-      if (Serial8.read() != 0xAA) continue; // 第二個不是 0xAA 就丟掉
-
-      uint8_t buffer[6];
-      for (int i = 0; i < 6; i++) buffer[i] = Serial8.read();
-
-      if (buffer[5] != 0xEE) continue; // 結尾檢查
-
-      uint8_t sum = buffer[0] + buffer[1] + buffer[2] + buffer[3];
-      if (sum != buffer[4]) continue; // Checksum 檢查
-
-      vx = (int16_t)((buffer[1] << 8) | buffer[0]);
-      vy = (int16_t)((buffer[3] << 8) | buffer[2]);
-      lastPacketTime = millis();
-      return true;
-    } 
-    
-    // --- 情況 C：雜訊或其他垃圾資料 ---
-    else {
-      Serial8.read(); // 把它讀掉清空，防止卡死
+void readMainPacket(){
+    static uint8_t buffer[11];
+    static int index = 0;
+    while(Serial8.available() > 0){
+        uint8_t b = Serial8.read();
+        if(index == 0 || index == 1){
+            if(b == 0xAA) buffer[index++] = b;
+            else index = 0;
+            continue;
+        }
+        buffer[index++] = b;
+        if(index == 11){
+            index = 0;
+            if(buffer[10] != 0xEE) continue;
+            uint8_t sum = 0;
+            for(int i = 2; i <= 8; i++) sum += buffer[i];
+            if(sum != buffer[9]) continue;
+            vx         = (int16_t)((buffer[3] << 8) | buffer[2]);
+            vy         = (int16_t)((buffer[5] << 8) | buffer[4]);
+            omega      = (int16_t)((buffer[7] << 8) | buffer[6]);
+            goal_valid =  buffer[8];
+        }
     }
-  }
-  return false;
 }
-
 void setup(){
   Robot_Init();
   Serial2.begin(115200);
@@ -267,31 +245,12 @@ void setup(){
 
 void loop(){
   readBNO085Yaw();
-  readMainCore();
-  linesensor_update();
-  bool onLine = moveBackInBounds();
-
-  if (fabs(gyroData.pitch) > 15) {
-    finalVx= 0;finalVy = 0;
-    control.robot_heading = 90; 
-    Vector_Motion(0, 0); 
-    Serial.println("ROBOT PICKED UP - ALL STATES RESET");
-    return; 
-  }
-  
-  
-  
-  if(onLine){
-    finalVx = lineVx;
-    finalVy = lineVy;
-  }
-  else{
+  readMainPacket();
       finalVx = vx;
       finalVy = vy;
-  }
   //finalVx = vx;
   //finalVy = vy;
-  Vector_Motion(0,10);
+  Vector_Motion(finalVx,finalVy,omega,0,0);
   Serial.print("vx= ");Serial.println(finalVx);
   Serial.print("vy= ");Serial.println(finalVy);
 
